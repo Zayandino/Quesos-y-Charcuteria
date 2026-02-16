@@ -401,244 +401,257 @@ const DataManager = {
             config[key] = value;
             localStorage.setItem('config', JSON.stringify(config));
             return true;
-        } else {
-            // Upsert directo ahora que RLS está desactivado.
-            const { error } = await this.supabase
-                .from('configuracion')
-                .upsert({ clave: key, valor: value }, { onConflict: 'clave' });
+    async setConfig(key, value) {
+                if (this.mode === 'local') {
+                    const config = JSON.parse(localStorage.getItem('config') || '{}');
+                    config[key] = value;
+                    localStorage.setItem('config', JSON.stringify(config));
+                    return true;
+                } else {
+                    console.log(`📡 Guardando ${key}...`);
+                    // Intentamos el upsert directo primero
+                    const { error } = await this.supabase
+                        .from('configuracion')
+                        .upsert({ clave: key, valor: value }, { onConflict: 'clave' });
 
-            if (error) {
-                console.error(`❌ Error en setConfig (${key}):`, error);
-                throw error;
-            }
-            return true;
-        }
-    },
+                    if (error) {
+                        console.warn(`⚠️ Conflicto detected en ${key}, reintentando limpieza manual...`);
+                        // Si el upsert falla por conflicto 409, borramos y reinsertamos
+                        await this.supabase.from('configuracion').delete().eq('clave', key);
+                        const { error: retryError } = await this.supabase
+                            .from('configuracion')
+                            .insert([{ clave: key, valor: value }]);
+
+                        if (retryError) throw retryError;
+                    }
+                    return true;
+                }
+            },
 
     // ===== STORAGE (IMÁGENES) =====
     async uploadImagen(file) {
-        if (this.mode === 'local') return 'https://via.placeholder.com/400';
+                if (this.mode === 'local') return 'https://via.placeholder.com/400';
 
-        const fileName = `${Date.now()}-${file.name}`;
-        const { data, error } = await this.supabase.storage
-            .from('productos')
-            .upload(fileName, file);
+                const fileName = `${Date.now()}-${file.name}`;
+                const { data, error } = await this.supabase.storage
+                    .from('productos')
+                    .upload(fileName, file);
 
-        if (error) throw error;
+                if (error) throw error;
 
-        // Obtener URL pública
-        const { data: publicURL } = this.supabase.storage
-            .from('productos')
-            .getPublicUrl(fileName);
+                // Obtener URL pública
+                const { data: publicURL } = this.supabase.storage
+                    .from('productos')
+                    .getPublicUrl(fileName);
 
-        return publicURL.publicUrl;
-    },
+                return publicURL.publicUrl;
+            },
 
     // ===== SUSCRIPTORES =====
     async getSubscribers() {
-        if (this.mode === 'local') {
-            return JSON.parse(localStorage.getItem('subscribers') || '[]');
-        } else {
-            const { data, error } = await this.supabase
-                .from('suscripciones')
-                .select(`
+                if (this.mode === 'local') {
+                    return JSON.parse(localStorage.getItem('subscribers') || '[]');
+                } else {
+                    const { data, error } = await this.supabase
+                        .from('suscripciones')
+                        .select(`
                     *,
                     clientes (nombre, email),
                     packs_suscripcion (nombre)
                 `);
-            if (error) throw error;
-            return data.map(s => ({
-                id: s.id,
-                nombre: s.clientes?.nombre || 'Desconocido',
-                email: s.clientes?.email || 'N/A',
-                plan: s.packs_suscripcion?.nombre || 'N/A',
-                fecha_inicio: s.fecha_inicio,
-                estado: s.estado
-            }));
-        }
-    },
+                    if (error) throw error;
+                    return data.map(s => ({
+                        id: s.id,
+                        nombre: s.clientes?.nombre || 'Desconocido',
+                        email: s.clientes?.email || 'N/A',
+                        plan: s.packs_suscripcion?.nombre || 'N/A',
+                        fecha_inicio: s.fecha_inicio,
+                        estado: s.estado
+                    }));
+                }
+            },
 
     async getOrCreateCliente(email, nombre) {
-        if (this.mode === 'local') {
-            const clientes = JSON.parse(localStorage.getItem('clientes') || '[]');
-            let cliente = clientes.find(c => c.email === email);
-            if (!cliente) {
-                cliente = { id: Date.now(), email, nombre };
-                clientes.push(cliente);
-                localStorage.setItem('clientes', JSON.stringify(clientes));
-            }
-            return cliente;
-        } else {
-            // Buscar cliente
-            const { data: existing, error: searchError } = await this.supabase
-                .from('clientes')
-                .select('*')
-                .eq('email', email)
-                .maybeSingle();
+                if (this.mode === 'local') {
+                    const clientes = JSON.parse(localStorage.getItem('clientes') || '[]');
+                    let cliente = clientes.find(c => c.email === email);
+                    if (!cliente) {
+                        cliente = { id: Date.now(), email, nombre };
+                        clientes.push(cliente);
+                        localStorage.setItem('clientes', JSON.stringify(clientes));
+                    }
+                    return cliente;
+                } else {
+                    // Buscar cliente
+                    const { data: existing, error: searchError } = await this.supabase
+                        .from('clientes')
+                        .select('*')
+                        .eq('email', email)
+                        .maybeSingle();
 
-            if (existing) return existing;
+                    if (existing) return existing;
 
-            // Crear cliente si no existe
-            const { data: created, error } = await this.supabase
-                .from('clientes')
-                .insert([{ email, nombre }])
-                .select()
-                .single();
+                    // Crear cliente si no existe
+                    const { data: created, error } = await this.supabase
+                        .from('clientes')
+                        .insert([{ email, nombre }])
+                        .select()
+                        .single();
 
-            if (error) {
-                console.error("Error creating client:", error);
-                throw new Error("No pudimos vincular tu cuenta con nuestro sistema de clientes.");
-            }
-            return created;
-        }
-    },
+                    if (error) {
+                        console.error("Error creating client:", error);
+                        throw new Error("No pudimos vincular tu cuenta con nuestro sistema de clientes.");
+                    }
+                    return created;
+                }
+            },
 
     async createSuscripcion(clienteId, packId) {
-        if (this.mode === 'local') {
-            const subs = JSON.parse(localStorage.getItem('subscribers') || '[]');
-            const newSub = {
-                id: Date.now(),
-                cliente_id: clienteId,
-                pack_id: packId,
-                estado: 'activa',
-                fecha_inicio: new Date().toISOString()
-            };
-            subs.push(newSub);
-            localStorage.setItem('subscribers', JSON.stringify(subs));
-            return newSub;
-        } else {
-            const { data, error } = await this.supabase
-                .from('suscripciones')
-                .insert([{
-                    cliente_id: clienteId,
-                    pack_id: packId,
-                    estado: 'activa',
-                    fecha_inicio: new Date().toISOString()
-                }])
-                .select()
-                .single();
-
-            if (error) throw error;
-            return data;
-        }
-    },
-
-    // ===== PEDIDOS (ADMIN) =====
-    async getPedidosFull() {
-        if (this.mode === 'local') {
-            return JSON.parse(localStorage.getItem('orders') || '[]');
-        } else {
-            const { data, error } = await this.supabase
-                .from('pedidos')
-                .select(`
-                    *,
-                    clientes (nombre)
-                `)
-                .order('created_at', { ascending: false });
-            if (error) throw error;
-            return data.map(o => ({
-                id: o.id,
-                fecha: o.created_at,
-                cliente: o.clientes?.nombre || 'Anonimo',
-                total: o.total,
-                estado: o.estado,
-                productos: 'Ver detalle' // Se carga al ver detalle
-            }));
-        }
-    },
-
-    // ===== CONFIGURACIÓN =====
-    async createPedido(orderData, items) {
-        if (this.mode === 'local') {
-            const orders = JSON.parse(localStorage.getItem('orders') || '[]');
-            const newOrder = {
-                id: orders.length > 0 ? Math.max(...orders.map(o => o.id)) + 1 : 1001,
-                ...orderData,
-                items: items,
-                fecha: new Date().toISOString(),
-                estado: 'Pendiente'
-            };
-            orders.push(newOrder);
-            localStorage.setItem('orders', JSON.stringify(orders));
-            return newOrder;
-        } else {
-            try {
-                // 1. Manejar el Cliente (Buscar o Crear)
-                let clienteId = null;
-                const { data: existingClient } = await this.supabase
-                    .from('clientes')
-                    .select('id')
-                    .eq('email', orderData.email)
-                    .single();
-
-                if (existingClient) {
-                    clienteId = existingClient.id;
+                if (this.mode === 'local') {
+                    const subs = JSON.parse(localStorage.getItem('subscribers') || '[]');
+                    const newSub = {
+                        id: Date.now(),
+                        cliente_id: clienteId,
+                        pack_id: packId,
+                        estado: 'activa',
+                        fecha_inicio: new Date().toISOString()
+                    };
+                    subs.push(newSub);
+                    localStorage.setItem('subscribers', JSON.stringify(subs));
+                    return newSub;
                 } else {
-                    const { data: newClient, error: clientError } = await this.supabase
-                        .from('clientes')
+                    const { data, error } = await this.supabase
+                        .from('suscripciones')
                         .insert([{
-                            email: orderData.email,
-                            nombre: orderData.nombre,
-                            telefono: orderData.telefono,
-                            direccion: orderData.direccion,
-                            comuna: orderData.comuna
+                            cliente_id: clienteId,
+                            pack_id: packId,
+                            estado: 'activa',
+                            fecha_inicio: new Date().toISOString()
                         }])
                         .select()
                         .single();
-                    if (clientError) throw clientError;
-                    clienteId = newClient.id;
+
+                    if (error) throw error;
+                    return data;
                 }
+            },
 
-                // 2. Insertar el pedido
-                const subtotal = items.reduce((sum, item) => sum + (item.precio * item.quantity), 0);
-                const numeroPedido = 'CC-' + Math.floor(1000 + Math.random() * 9000);
+    // ===== PEDIDOS (ADMIN) =====
+    async getPedidosFull() {
+                if (this.mode === 'local') {
+                    return JSON.parse(localStorage.getItem('orders') || '[]');
+                } else {
+                    const { data, error } = await this.supabase
+                        .from('pedidos')
+                        .select(`
+                    *,
+                    clientes (nombre)
+                `)
+                        .order('created_at', { ascending: false });
+                    if (error) throw error;
+                    return data.map(o => ({
+                        id: o.id,
+                        fecha: o.created_at,
+                        cliente: o.clientes?.nombre || 'Anonimo',
+                        total: o.total,
+                        estado: o.estado,
+                        productos: 'Ver detalle' // Se carga al ver detalle
+                    }));
+                }
+            },
 
-                const { data: order, error: orderError } = await this.supabase
-                    .from('pedidos')
-                    .insert([{
-                        numero_pedido: numeroPedido,
-                        cliente_id: clienteId,
-                        subtotal: subtotal,
-                        costo_envio: orderData.total - subtotal,
-                        total: orderData.total,
-                        direccion_envio: orderData.direccion,
-                        comuna: orderData.comuna,
-                        estado: 'pendiente',
-                        fecha_pago: null
-                    }])
-                    .select()
-                    .single();
+    // ===== CONFIGURACIÓN =====
+    async createPedido(orderData, items) {
+                if (this.mode === 'local') {
+                    const orders = JSON.parse(localStorage.getItem('orders') || '[]');
+                    const newOrder = {
+                        id: orders.length > 0 ? Math.max(...orders.map(o => o.id)) + 1 : 1001,
+                        ...orderData,
+                        items: items,
+                        fecha: new Date().toISOString(),
+                        estado: 'Pendiente'
+                    };
+                    orders.push(newOrder);
+                    localStorage.setItem('orders', JSON.stringify(orders));
+                    return newOrder;
+                } else {
+                    try {
+                        // 1. Manejar el Cliente (Buscar o Crear)
+                        let clienteId = null;
+                        const { data: existingClient } = await this.supabase
+                            .from('clientes')
+                            .select('id')
+                            .eq('email', orderData.email)
+                            .single();
 
-                if (orderError) throw orderError;
+                        if (existingClient) {
+                            clienteId = existingClient.id;
+                        } else {
+                            const { data: newClient, error: clientError } = await this.supabase
+                                .from('clientes')
+                                .insert([{
+                                    email: orderData.email,
+                                    nombre: orderData.nombre,
+                                    telefono: orderData.telefono,
+                                    direccion: orderData.direccion,
+                                    comuna: orderData.comuna
+                                }])
+                                .select()
+                                .single();
+                            if (clientError) throw clientError;
+                            clienteId = newClient.id;
+                        }
 
-                // 3. Insertar los items del pedido
-                const itemsToInsert = items.map(item => ({
-                    pedido_id: order.id,
-                    producto_id: item.id,
-                    producto_nombre: item.nombre,
-                    cantidad: item.quantity,
-                    precio_unitario: item.precio,
-                    subtotal: item.precio * item.quantity
-                }));
+                        // 2. Insertar el pedido
+                        const subtotal = items.reduce((sum, item) => sum + (item.precio * item.quantity), 0);
+                        const numeroPedido = 'CC-' + Math.floor(1000 + Math.random() * 9000);
 
-                const { error: itemsError } = await this.supabase
-                    .from('pedido_items')
-                    .insert(itemsToInsert);
+                        const { data: order, error: orderError } = await this.supabase
+                            .from('pedidos')
+                            .insert([{
+                                numero_pedido: numeroPedido,
+                                cliente_id: clienteId,
+                                subtotal: subtotal,
+                                costo_envio: orderData.total - subtotal,
+                                total: orderData.total,
+                                direccion_envio: orderData.direccion,
+                                comuna: orderData.comuna,
+                                estado: 'pendiente',
+                                fecha_pago: null
+                            }])
+                            .select()
+                            .single();
 
-                if (itemsError) throw itemsError;
+                        if (orderError) throw orderError;
 
-                return order;
-            } catch (error) {
-                console.error("Error en createPedido:", error);
-                throw error;
+                        // 3. Insertar los items del pedido
+                        const itemsToInsert = items.map(item => ({
+                            pedido_id: order.id,
+                            producto_id: item.id,
+                            producto_nombre: item.nombre,
+                            cantidad: item.quantity,
+                            precio_unitario: item.precio,
+                            subtotal: item.precio * item.quantity
+                        }));
+
+                        const { error: itemsError } = await this.supabase
+                            .from('pedido_items')
+                            .insert(itemsToInsert);
+
+                        if (itemsError) throw itemsError;
+
+                        return order;
+                    } catch (error) {
+                        console.error("Error en createPedido:", error);
+                        throw error;
+                    }
+                }
             }
+        };
+
+        // Inicializar al cargar
+        if (DataManager.mode === 'supabase') {
+            DataManager.initSupabase();
         }
-    }
-};
 
-// Inicializar al cargar
-if (DataManager.mode === 'supabase') {
-    DataManager.initSupabase();
-}
-
-console.log(`📊 DataManager inicializado en modo: ${DataManager.mode}`);
+        console.log(`📊 DataManager inicializado en modo: ${DataManager.mode}`);
