@@ -531,7 +531,7 @@ window.saveSystemConfig = async function () {
         alert('✅ Configuración guardada con éxito.');
     } catch (error) {
         console.error('Error saving config:', error);
-        alert('❌ Error al guardar la configuración.');
+        alert('❌ Error al guardar la configuración: ' + (error.message || 'Error de permisos o base de datos.'));
     }
 }
 

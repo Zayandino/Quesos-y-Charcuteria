@@ -404,8 +404,11 @@ const DataManager = {
         } else {
             const { error } = await this.supabase
                 .from('configuracion')
-                .upsert({ clave: key, valor: value });
-            if (error) throw error;
+                .upsert({ clave: key, valor: value }, { onConflict: 'clave' });
+            if (error) {
+                console.error(`Error configurando ${key}:`, error);
+                throw error;
+            }
             return true;
         }
     },
