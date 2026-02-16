@@ -5,8 +5,13 @@
    ======================================== */
 
 // ===== CONFIGURACIÓN =====
-const SUPABASE_URL = 'https://cwkjldxyxyhogyzavixr.supabase.co'; // Cambiar por tu URL
-const SUPABASE_ANON_KEY = 'sb_publishable_zGX7SEjSLB008FkqLX4PjA_UXY_SL6b'; // Cambiar por tu key
+// Las claves se cargan desde config.js (archivo no rastreado por Git)
+const SUPABASE_URL = typeof CONFIG !== 'undefined' ? CONFIG.SUPABASE_URL : '';
+const SUPABASE_ANON_KEY = typeof CONFIG !== 'undefined' ? CONFIG.SUPABASE_ANON_KEY : '';
+
+if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+    console.error('❌ Error: No se han encontrado las credenciales de Supabase en config.js');
+}
 
 // ===== DATA MANAGER =====
 const DataManager = {
