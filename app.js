@@ -723,6 +723,22 @@ async function loadProfileData() {
     const emailEl = document.getElementById('userEmail');
     if (emailEl) emailEl.textContent = user.email;
 
+    // Verificar si es admin para mostrar botón de acceso
+    const isAdmin = user.email === 'admin@cabraycurado.cl' || user.email === 'ambler.eduardo@gmail.com';
+    const profileActions = document.getElementById('profileAdminActions');
+    if (profileActions) {
+        if (isAdmin) {
+            profileActions.innerHTML = `
+                <a href="admin.html" class="btn btn-primary btn-block" style="background:var(--gold); color:var(--bg-main); margin-bottom: 2rem; display:flex; align-items:center; justify-content:center; gap:0.5rem; font-weight:700;">
+                    <i class="fas fa-cog"></i> PANEL DE ADMINISTRACIÓN
+                </a>
+            `;
+            profileActions.style.display = 'block';
+        } else {
+            profileActions.style.display = 'none';
+        }
+    }
+
     // Cargar Suscripción (Desde Supabase)
     const activeSubCard = document.getElementById('activeSubCard');
     try {
