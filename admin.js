@@ -528,7 +528,10 @@ window.saveSystemConfig = async function () {
         const entries = Object.entries(configs);
         for (const [key, value] of entries) {
             if (value !== undefined && value !== null) {
+                console.log(`💾 Guardando: ${key}...`);
                 await DataManager.setConfig(key, value);
+                // Pequeña pausa para evitar colisiones en la DB
+                await new Promise(resolve => setTimeout(resolve, 200));
             }
         }
 
