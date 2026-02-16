@@ -520,14 +520,17 @@ function setupEventListeners() {
     // Suscripciones
     document.querySelectorAll('.pack-btn').forEach(btn => {
         btn.addEventListener('click', async (e) => {
-            const packId = e.target.dataset.pack; // Ej: 1, 2, 3
-            const packName = e.target.closest('.pack-card').querySelector('h3').textContent;
+            const packId = e.currentTarget.dataset.packId;
+            const packName = e.currentTarget.dataset.packName;
+
+            console.log(`🧀 Seleccionando suscripción: ${packName} (ID: ${packId})`);
 
             if (!sessionStorage.getItem('user_email')) {
-                sessionStorage.setItem('pending_subscription', packId);
-                alert(`Para suscribirte al ${packName}, por favor inicia sesión o regístrate.`);
+                sessionStorage.setItem('pending_subscription_id', packId);
+                sessionStorage.setItem('pending_subscription_name', packName);
+                alert(`Para suscribirte con éxito, por favor inicia sesión o regístrate en nuestro club.`);
                 openAuthModal();
-                switchAuthTab('register');
+                switchAuthTab('login');
             } else {
                 await processSubscription(packId, packName);
             }
@@ -1032,30 +1035,39 @@ function setupFooterEventListeners() {
 async function processSubscription(packId, packName) {
     try {
         const userEmail = sessionStorage.getItem('user_email');
-        const userName = sessionStorage.getItem('user_name') || 'Cliente';
+        const userName = sessionStorage.getItem('user_name') || userEmail.split('@')[0];
+
+        if (!userEmail) throw new Error('No hay sesión activa para suscribir');
+
+        console.log('🚀 Iniciando suscripción para:', userEmail, 'Pack:', packId);
 
         // 1. Obtener o crear el cliente en la tabla 'clientes'
         const cliente = await DataManager.getOrCreateCliente(userEmail, userName);
+        console.log('👤 Cliente vinculado:', cliente.id);
 
-        // 2. Crear la suscripción
-        await DataManager.createSuscripcion(cliente.id, packId);
+        // 2. Crear la suscripción (usando el ID numérico que espera la DB)
+        await DataManager.createSuscripcion(cliente.id, parseInt(packId));
 
-        alert(`🎉 ¡Felicidades! Te has suscrito con éxito al ${packName}. Bienvenid@ a la familia Cabra & Curado.`);
-        sessionStorage.removeItem('pending_subscription');
+        alert(`🎉 ¡Felicidades! Te has suscrito con éxito al ${packName}.\nBienvenid@ a la familia Cabra & Curado.`);
+
+        sessionStorage.removeItem('pending_subscription_id');
+        sessionStorage.removeItem('pending_subscription_name');
 
         // Redirigir al perfil para ver su estado
         openProfileModal();
     } catch (error) {
-        console.error('Error in subscription:', error);
-        alert('Hubo un problema al procesar tu suscripción. Por favor contacta a soporte.');
+        console.error('❌ Error in subscription process:', error);
+        alert('Hubo un problema al procesar tu suscripción.\n\nDetalle: ' + (error.message || 'Error de conexión con la base de datos'));
     }
 }
 
 async function checkPendingSubscription() {
-    const pendingPackId = sessionStorage.getItem('pending_subscription');
+    const pendingPackId = sessionStorage.getItem('pending_subscription_id');
+    const pendingPackName = sessionStorage.getItem('pending_subscription_name');
+
     if (pendingPackId) {
-        const packs = { '1': 'Pack Iniciación', '2': 'Pack Gourmet', '3': 'Pack Experto' };
-        await processSubscription(pendingPackId, packs[pendingPackId] || 'Pack seleccionado');
+        console.log('📦 Procesando suscripción pendiente tras login:', pendingPackName);
+        await processSubscription(pendingPackId, pendingPackName || 'Pack seleccionado');
     }
 }
 

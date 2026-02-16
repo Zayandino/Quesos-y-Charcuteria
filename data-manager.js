@@ -465,22 +465,25 @@ const DataManager = {
             return cliente;
         } else {
             // Buscar cliente
-            const { data: existing } = await this.supabase
+            const { data: existing, error: searchError } = await this.supabase
                 .from('clientes')
                 .select('*')
                 .eq('email', email)
-                .single();
+                .maybeSingle();
 
             if (existing) return existing;
 
-            // Crear cliente
+            // Crear cliente si no existe
             const { data: created, error } = await this.supabase
                 .from('clientes')
                 .insert([{ email, nombre }])
                 .select()
                 .single();
 
-            if (error) throw error;
+            if (error) {
+                console.error("Error creating client:", error);
+                throw new Error("No pudimos vincular tu cuenta con nuestro sistema de clientes.");
+            }
             return created;
         }
     },
