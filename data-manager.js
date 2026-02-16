@@ -402,12 +402,26 @@ const DataManager = {
             localStorage.setItem('config', JSON.stringify(config));
             return true;
         } else {
-            const { error } = await this.supabase
+            // Estrategia robusta: intentar actualizar primero, si falla o no afecta filas, insertar.
+            const { data, error: updateError } = await this.supabase
                 .from('configuracion')
-                .upsert({ clave: key, valor: value }, { onConflict: 'clave' });
-            if (error) {
-                console.error(`Error configurando ${key}:`, error);
-                throw error;
+                .update({ valor: value })
+                .eq('clave', key)
+                .select();
+
+            if (updateError) {
+                console.warn(`Intento de update fallido para ${key}, intentando insert...`);
+                const { error: insertError } = await this.supabase
+                    .from('configuracion')
+                    .insert([{ clave: key, valor: value }]);
+
+                if (insertError) throw insertError;
+            } else if (!data || data.length === 0) {
+                // Si el update no dio error pero no encontró la fila
+                const { error: insertError } = await this.supabase
+                    .from('configuracion')
+                    .insert([{ clave: key, valor: value }]);
+                if (insertError) throw insertError;
             }
             return true;
         }

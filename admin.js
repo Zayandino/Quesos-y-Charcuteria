@@ -525,8 +525,12 @@ window.saveSystemConfig = async function () {
             'mp_access_token': document.getElementById('conf_mp_access').value
         };
 
-        const promises = Object.entries(configs).map(([key, value]) => DataManager.setConfig(key, value));
-        await Promise.all(promises);
+        const entries = Object.entries(configs);
+        for (const [key, value] of entries) {
+            if (value !== undefined && value !== null) {
+                await DataManager.setConfig(key, value);
+            }
+        }
 
         alert('✅ Configuración guardada con éxito.');
     } catch (error) {
