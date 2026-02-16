@@ -209,6 +209,26 @@ img {
     font-style: italic;
 }
 
+.admin-shortcut-btn {
+    background: rgba(212, 175, 55, 0.1);
+    color: var(--gold);
+    border: 1px solid var(--gold);
+    padding: 0.3rem 0.6rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    text-decoration: none;
+    margin-right: 1rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    transition: var(--transition);
+}
+
+.admin-shortcut-btn:hover {
+    background: var(--gold);
+    color: var(--bg-main);
+}
+
 .nav {
     display: flex;
     gap: 2rem;

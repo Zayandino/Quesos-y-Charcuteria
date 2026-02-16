@@ -591,16 +591,19 @@ function setupEventListeners() {
                 const data = await DataManager.signIn(email, pass);
                 if (data.user) {
                     sessionStorage.setItem('user_email', data.user.email);
-                    // Acceso rápido para pruebas de admin
-                    if (pass === 'admin123') {
-                        sessionStorage.setItem('admin_authenticated', 'true');
-                        alert('Sesión de administrador iniciada');
-                        window.location.href = 'admin.html';
-                        return;
-                    }
-                    alert(`¡Bienvenido de vuelta!`);
                     updateUserUI(data.user);
                     closeAuthModalFunc();
+
+                    // Si es admin, preguntar si quiere ir al panel
+                    const isAdmin = data.user.email === 'admin@cabraycurado.cl' || data.user.email === 'ambler.eduardo@gmail.com';
+                    if (isAdmin) {
+                        sessionStorage.setItem('admin_authenticated', 'true');
+                        if (confirm('💪 Hola Eduardo, bienvenido. ¿Deseas ir al Panel de Administración?')) {
+                            window.location.href = 'admin.html';
+                            return;
+                        }
+                    }
+                    alert('¡Bienvenido de nuevo!');
                     await checkPendingSubscription();
                 }
             } catch (error) {
@@ -667,8 +670,25 @@ function updateUserUI(user) {
     const accountBtn = document.getElementById('accountBtn');
     if (accountBtn) {
         const name = user.user_metadata?.nombre || user.email.split('@')[0];
-        accountBtn.innerHTML = `<i class="fas fa-user" style="color:var(--gold)"></i> Hola, ${name}`;
+        const isAdmin = user.user_metadata?.rol === 'admin' ||
+            user.email === 'admin@cabraycurado.cl' ||
+            user.email === 'ambler.eduardo@gmail.com'; // Permitir acceso rápido a Eduardo
+
+        let adminLink = '';
+        if (isAdmin) {
+            adminLink = `<a href="admin.html" class="admin-shortcut-btn" title="Ir al Panel de Control">
+                            <i class="fas fa-cog"></i> Admin
+                         </a>`;
+        }
+
+        accountBtn.innerHTML = `
+            ${adminLink}
+            <div onclick="openProfileModal()" style="display:inline-block; cursor:pointer;">
+                <i class="fas fa-user" style="color:var(--gold)"></i> Hola, ${name}
+            </div>
+        `;
         sessionStorage.setItem('user_email', user.email);
+        if (isAdmin) sessionStorage.setItem('is_admin', 'true');
     }
 }
 
