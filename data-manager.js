@@ -5,7 +5,6 @@
    ======================================== */
 
 // ===== CONFIGURACIÓN =====
-// Las claves se cargan desde config.js (archivo no rastreado por Git)
 const SUPABASE_URL = typeof CONFIG !== 'undefined' ? CONFIG.SUPABASE_URL : '';
 const SUPABASE_ANON_KEY = typeof CONFIG !== 'undefined' ? CONFIG.SUPABASE_ANON_KEY : '';
 
@@ -15,12 +14,9 @@ if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
 
 // ===== DATA MANAGER =====
 const DataManager = {
-    // Modo: 'local' para localStorage, 'supabase' para producción
     mode: 'supabase',
-
     supabase: null,
 
-    // Inicializar Supabase
     initSupabase() {
         if (this.mode === 'supabase' && typeof supabase !== 'undefined') {
             this.supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -34,9 +30,7 @@ const DataManager = {
             const { data, error } = await this.supabase.auth.signUp({
                 email,
                 password,
-                options: {
-                    data: metadata
-                }
+                options: { data: metadata }
             });
             if (error) throw error;
             return data;
@@ -77,26 +71,19 @@ const DataManager = {
         return null;
     },
 
-
     // ===== PRODUCTORES =====
     async getProductores(filters = {}) {
         if (this.mode === 'local') {
             let productores = JSON.parse(localStorage.getItem('productores') || '[]');
-
-            // Aplicar filtros
             if (filters.activo !== undefined) {
                 productores = productores.filter(p => p.activo === filters.activo);
             }
-
             return productores;
         } else {
-            // Supabase
             let query = this.supabase.from('productores').select('*');
-
             if (filters.activo !== undefined) {
                 query = query.eq('activo', filters.activo);
             }
-
             const { data, error } = await query;
             if (error) throw error;
             return data;
@@ -152,27 +139,9 @@ const DataManager = {
             localStorage.setItem('productores', JSON.stringify(productores));
             return true;
         } else {
-            const { error } = await this.supabase
-                .from('productores')
-                .delete()
-                .eq('id', id);
+            const { error } = await this.supabase.from('productores').delete().eq('id', id);
             if (error) throw error;
             return true;
-        }
-    },
-
-    async getProductoById(id) {
-        if (this.mode === 'local') {
-            const productos = JSON.parse(localStorage.getItem('productos') || '[]');
-            return productos.find(p => p.id === id);
-        } else {
-            const { data, error } = await this.supabase
-                .from('productos')
-                .select('*')
-                .eq('id', id)
-                .single();
-            if (error) throw error;
-            return data;
         }
     },
 
@@ -181,81 +150,45 @@ const DataManager = {
         if (this.mode === 'local') {
             let productos = JSON.parse(localStorage.getItem('productos') || '[]');
             const productores = JSON.parse(localStorage.getItem('productores') || '[]');
-
-            // Enriquecer con nombre del productor
-            productos = productos.map(p => {
-                const productor = productores.find(prod => prod.id === p.productor_id);
-                return {
-                    ...p,
-                    productor_nombre: productor ? productor.nombre : 'Desconocido'
-                };
-            });
-
-            // Aplicar filtros
-            if (filters.categoria) {
-                productos = productos.filter(p => p.categoria === filters.categoria);
-            }
-            if (filters.activo !== undefined) {
-                productos = productos.filter(p => p.activo === filters.activo);
-            }
-            if (filters.visible_tienda !== undefined) {
-                productos = productos.filter(p => p.visible_tienda === filters.visible_tienda);
-            }
-            if (filters.productor_id) {
-                productos = productos.filter(p => p.productor_id === filters.productor_id);
-            }
-
+            productos = productos.map(p => ({
+                ...p,
+                productor_nombre: productores.find(prod => prod.id === p.productor_id)?.nombre || 'Desconocido'
+            }));
+            if (filters.categoria) productos = productos.filter(p => p.categoria === filters.categoria);
+            if (filters.activo !== undefined) productos = productos.filter(p => p.activo === filters.activo);
+            if (filters.visible_tienda !== undefined) productos = productos.filter(p => p.visible_tienda === filters.visible_tienda);
             return productos;
         } else {
-            let query = this.supabase
-                .from('productos')
-                .select(`
-          *,
-          productores (
-            nombre
-          )
-        `);
-
-            if (filters.categoria) {
-                query = query.eq('categoria', filters.categoria);
-            }
-            if (filters.activo !== undefined) {
-                query = query.eq('activo', filters.activo);
-            }
-            if (filters.visible_tienda !== undefined) {
-                query = query.eq('visible_tienda', filters.visible_tienda);
-            }
-            if (filters.productor_id) {
-                query = query.eq('productor_id', filters.productor_id);
-            }
-
+            let query = this.supabase.from('productos').select('*, productores(nombre)');
+            if (filters.categoria) query = query.eq('categoria', filters.categoria);
+            if (filters.activo !== undefined) query = query.eq('activo', filters.activo);
+            if (filters.visible_tienda !== undefined) query = query.eq('visible_tienda', filters.visible_tienda);
             const { data, error } = await query;
             if (error) throw error;
+            return data.map(p => ({ ...p, productor_nombre: p.productores?.nombre || 'Desconocido' }));
+        }
+    },
 
-            // Aplanar estructura
-            return data.map(p => ({
-                ...p,
-                productor_nombre: p.productores?.nombre || 'Desconocido'
-            }));
+    async getProductoById(id) {
+        if (this.mode === 'local') {
+            const productos = JSON.parse(localStorage.getItem('productos') || '[]');
+            return productos.find(p => p.id === id);
+        } else {
+            const { data, error } = await this.supabase.from('productos').select('*').eq('id', id).single();
+            if (error) throw error;
+            return data;
         }
     },
 
     async createProducto(data) {
         if (this.mode === 'local') {
             const productos = JSON.parse(localStorage.getItem('productos') || '[]');
-            const newProducto = {
-                id: productos.length > 0 ? Math.max(...productos.map(p => p.id)) + 1 : 1,
-                ...data,
-                created_at: new Date().toISOString()
-            };
-            productos.push(newProducto);
+            const newP = { id: Date.now(), ...data, created_at: new Date().toISOString() };
+            productos.push(newP);
             localStorage.setItem('productos', JSON.stringify(productos));
-            return newProducto;
+            return newP;
         } else {
-            const { data: result, error } = await this.supabase
-                .from('productos')
-                .insert([data])
-                .select();
+            const { data: result, error } = await this.supabase.from('productos').insert([data]).select();
             if (error) throw error;
             return result[0];
         }
@@ -264,118 +197,17 @@ const DataManager = {
     async updateProducto(id, data) {
         if (this.mode === 'local') {
             const productos = JSON.parse(localStorage.getItem('productos') || '[]');
-            const index = productos.findIndex(p => p.id === id);
-            if (index !== -1) {
-                productos[index] = { ...productos[index], ...data, updated_at: new Date().toISOString() };
+            const idx = productos.findIndex(p => p.id === id);
+            if (idx !== -1) {
+                productos[idx] = { ...productos[idx], ...data, updated_at: new Date().toISOString() };
                 localStorage.setItem('productos', JSON.stringify(productos));
-                return productos[index];
+                return productos[idx];
             }
             return null;
         } else {
-            const { data: result, error } = await this.supabase
-                .from('productos')
-                .update(data)
-                .eq('id', id)
-                .select();
+            const { data: result, error } = await this.supabase.from('productos').update(data).eq('id', id).select();
             if (error) throw error;
             return result[0];
-        }
-    },
-
-    async deleteProducto(id) {
-        if (this.mode === 'local') {
-            let productos = JSON.parse(localStorage.getItem('productos') || '[]');
-            productos = productos.filter(p => p.id !== id);
-            localStorage.setItem('productos', JSON.stringify(productos));
-            return true;
-        } else {
-            const { error } = await this.supabase
-                .from('productos')
-                .delete()
-                .eq('id', id);
-            if (error) throw error;
-            return true;
-        }
-    },
-
-    // ===== PACKS DE SUSCRIPCIÓN =====
-    async getPacks(filters = {}) {
-        if (this.mode === 'local') {
-            let packs = JSON.parse(localStorage.getItem('packs_suscripcion') || '[]');
-
-            if (filters.activo !== undefined) {
-                packs = packs.filter(p => p.activo === filters.activo);
-            }
-
-            return packs;
-        } else {
-            let query = this.supabase.from('packs_suscripcion').select('*');
-
-            if (filters.activo !== undefined) {
-                query = query.eq('activo', filters.activo);
-            }
-
-            const { data, error } = await query;
-            if (error) throw error;
-            return data;
-        }
-    },
-
-    async createPack(data) {
-        if (this.mode === 'local') {
-            const packs = JSON.parse(localStorage.getItem('packs_suscripcion') || '[]');
-            const newPack = {
-                id: packs.length > 0 ? Math.max(...packs.map(p => p.id)) + 1 : 1,
-                ...data,
-                created_at: new Date().toISOString()
-            };
-            packs.push(newPack);
-            localStorage.setItem('packs_suscripcion', JSON.stringify(packs));
-            return newPack;
-        } else {
-            const { data: result, error } = await this.supabase
-                .from('packs_suscripcion')
-                .insert([data])
-                .select();
-            if (error) throw error;
-            return result[0];
-        }
-    },
-
-    async updatePack(id, data) {
-        if (this.mode === 'local') {
-            const packs = JSON.parse(localStorage.getItem('packs_suscripcion') || '[]');
-            const index = packs.findIndex(p => p.id === id);
-            if (index !== -1) {
-                packs[index] = { ...packs[index], ...data, updated_at: new Date().toISOString() };
-                localStorage.setItem('packs_suscripcion', JSON.stringify(packs));
-                return packs[index];
-            }
-            return null;
-        } else {
-            const { data: result, error } = await this.supabase
-                .from('packs_suscripcion')
-                .update(data)
-                .eq('id', id)
-                .select();
-            if (error) throw error;
-            return result[0];
-        }
-    },
-
-    async deletePack(id) {
-        if (this.mode === 'local') {
-            let packs = JSON.parse(localStorage.getItem('packs_suscripcion') || '[]');
-            packs = packs.filter(p => p.id !== id);
-            localStorage.setItem('packs_suscripcion', JSON.stringify(packs));
-            return true;
-        } else {
-            const { error } = await this.supabase
-                .from('packs_suscripcion')
-                .delete()
-                .eq('id', id);
-            if (error) throw error;
-            return true;
         }
     },
 
@@ -385,11 +217,7 @@ const DataManager = {
             const config = JSON.parse(localStorage.getItem('config') || '{}');
             return config[key];
         } else {
-            const { data, error } = await this.supabase
-                .from('configuracion')
-                .select('valor')
-                .eq('clave', key)
-                .single();
+            const { data, error } = await this.supabase.from('configuracion').select('valor').eq('clave', key).maybeSingle();
             if (error) throw error;
             return data?.valor;
         }
@@ -401,257 +229,130 @@ const DataManager = {
             config[key] = value;
             localStorage.setItem('config', JSON.stringify(config));
             return true;
-    async setConfig(key, value) {
-                if (this.mode === 'local') {
-                    const config = JSON.parse(localStorage.getItem('config') || '{}');
-                    config[key] = value;
-                    localStorage.setItem('config', JSON.stringify(config));
-                    return true;
-                } else {
-                    console.log(`📡 Guardando ${key}...`);
-                    // Intentamos el upsert directo primero
-                    const { error } = await this.supabase
-                        .from('configuracion')
-                        .upsert({ clave: key, valor: value }, { onConflict: 'clave' });
+        } else {
+            console.log(`📡 Guardando ${key}...`);
+            // Intentamos el upsert directo primero
+            const { error } = await this.supabase
+                .from('configuracion')
+                .upsert({ clave: key, valor: value }, { onConflict: 'clave' });
 
-                    if (error) {
-                        console.warn(`⚠️ Conflicto detected en ${key}, reintentando limpieza manual...`);
-                        // Si el upsert falla por conflicto 409, borramos y reinsertamos
-                        await this.supabase.from('configuracion').delete().eq('clave', key);
-                        const { error: retryError } = await this.supabase
-                            .from('configuracion')
-                            .insert([{ clave: key, valor: value }]);
+            if (error) {
+                console.warn(`⚠️ Conflicto detectado en ${key}, reintentando limpieza manual...`);
+                // Si el upsert falla por conflicto 409, borramos y reinsertamos
+                await this.supabase.from('configuracion').delete().eq('clave', key);
+                const { error: retryError } = await this.supabase
+                    .from('configuracion')
+                    .insert([{ clave: key, valor: value }]);
 
-                        if (retryError) throw retryError;
-                    }
-                    return true;
-                }
-            },
+                if (retryError) throw retryError;
+            }
+            return true;
+        }
+    },
 
-    // ===== STORAGE (IMÁGENES) =====
+    // ===== STORAGE =====
     async uploadImagen(file) {
-                if (this.mode === 'local') return 'https://via.placeholder.com/400';
-
-                const fileName = `${Date.now()}-${file.name}`;
-                const { data, error } = await this.supabase.storage
-                    .from('productos')
-                    .upload(fileName, file);
-
-                if (error) throw error;
-
-                // Obtener URL pública
-                const { data: publicURL } = this.supabase.storage
-                    .from('productos')
-                    .getPublicUrl(fileName);
-
-                return publicURL.publicUrl;
-            },
+        if (this.mode === 'local') return 'https://via.placeholder.com/400';
+        const fileName = `${Date.now()}-${file.name}`;
+        const { error } = await this.supabase.storage.from('productos').upload(fileName, file);
+        if (error) throw error;
+        const { data: publicURL } = this.supabase.storage.from('productos').getPublicUrl(fileName);
+        return publicURL.publicUrl;
+    },
 
     // ===== SUSCRIPTORES =====
     async getSubscribers() {
-                if (this.mode === 'local') {
-                    return JSON.parse(localStorage.getItem('subscribers') || '[]');
-                } else {
-                    const { data, error } = await this.supabase
-                        .from('suscripciones')
-                        .select(`
-                    *,
-                    clientes (nombre, email),
-                    packs_suscripcion (nombre)
-                `);
-                    if (error) throw error;
-                    return data.map(s => ({
-                        id: s.id,
-                        nombre: s.clientes?.nombre || 'Desconocido',
-                        email: s.clientes?.email || 'N/A',
-                        plan: s.packs_suscripcion?.nombre || 'N/A',
-                        fecha_inicio: s.fecha_inicio,
-                        estado: s.estado
-                    }));
-                }
-            },
+        if (this.mode === 'local') return JSON.parse(localStorage.getItem('subscribers') || '[]');
+        const { data, error } = await this.supabase
+            .from('suscripciones')
+            .select('*, clientes(nombre, email), packs_suscripcion(nombre)')
+            .order('created_at', { ascending: false });
+        if (error) throw error;
+        return data.map(s => ({
+            id: s.id,
+            nombre: s.clientes?.nombre || 'Desconocido',
+            email: s.clientes?.email || 'N/A',
+            plan: s.packs_suscripcion?.nombre || 'N/A',
+            fecha_inicio: s.fecha_inicio,
+            estado: s.estado
+        }));
+    },
 
+    // ===== CLIENTES =====
     async getOrCreateCliente(email, nombre) {
-                if (this.mode === 'local') {
-                    const clientes = JSON.parse(localStorage.getItem('clientes') || '[]');
-                    let cliente = clientes.find(c => c.email === email);
-                    if (!cliente) {
-                        cliente = { id: Date.now(), email, nombre };
-                        clientes.push(cliente);
-                        localStorage.setItem('clientes', JSON.stringify(clientes));
-                    }
-                    return cliente;
-                } else {
-                    // Buscar cliente
-                    const { data: existing, error: searchError } = await this.supabase
-                        .from('clientes')
-                        .select('*')
-                        .eq('email', email)
-                        .maybeSingle();
-
-                    if (existing) return existing;
-
-                    // Crear cliente si no existe
-                    const { data: created, error } = await this.supabase
-                        .from('clientes')
-                        .insert([{ email, nombre }])
-                        .select()
-                        .single();
-
-                    if (error) {
-                        console.error("Error creating client:", error);
-                        throw new Error("No pudimos vincular tu cuenta con nuestro sistema de clientes.");
-                    }
-                    return created;
-                }
-            },
-
-    async createSuscripcion(clienteId, packId) {
-                if (this.mode === 'local') {
-                    const subs = JSON.parse(localStorage.getItem('subscribers') || '[]');
-                    const newSub = {
-                        id: Date.now(),
-                        cliente_id: clienteId,
-                        pack_id: packId,
-                        estado: 'activa',
-                        fecha_inicio: new Date().toISOString()
-                    };
-                    subs.push(newSub);
-                    localStorage.setItem('subscribers', JSON.stringify(subs));
-                    return newSub;
-                } else {
-                    const { data, error } = await this.supabase
-                        .from('suscripciones')
-                        .insert([{
-                            cliente_id: clienteId,
-                            pack_id: packId,
-                            estado: 'activa',
-                            fecha_inicio: new Date().toISOString()
-                        }])
-                        .select()
-                        .single();
-
-                    if (error) throw error;
-                    return data;
-                }
-            },
-
-    // ===== PEDIDOS (ADMIN) =====
-    async getPedidosFull() {
-                if (this.mode === 'local') {
-                    return JSON.parse(localStorage.getItem('orders') || '[]');
-                } else {
-                    const { data, error } = await this.supabase
-                        .from('pedidos')
-                        .select(`
-                    *,
-                    clientes (nombre)
-                `)
-                        .order('created_at', { ascending: false });
-                    if (error) throw error;
-                    return data.map(o => ({
-                        id: o.id,
-                        fecha: o.created_at,
-                        cliente: o.clientes?.nombre || 'Anonimo',
-                        total: o.total,
-                        estado: o.estado,
-                        productos: 'Ver detalle' // Se carga al ver detalle
-                    }));
-                }
-            },
-
-    // ===== CONFIGURACIÓN =====
-    async createPedido(orderData, items) {
-                if (this.mode === 'local') {
-                    const orders = JSON.parse(localStorage.getItem('orders') || '[]');
-                    const newOrder = {
-                        id: orders.length > 0 ? Math.max(...orders.map(o => o.id)) + 1 : 1001,
-                        ...orderData,
-                        items: items,
-                        fecha: new Date().toISOString(),
-                        estado: 'Pendiente'
-                    };
-                    orders.push(newOrder);
-                    localStorage.setItem('orders', JSON.stringify(orders));
-                    return newOrder;
-                } else {
-                    try {
-                        // 1. Manejar el Cliente (Buscar o Crear)
-                        let clienteId = null;
-                        const { data: existingClient } = await this.supabase
-                            .from('clientes')
-                            .select('id')
-                            .eq('email', orderData.email)
-                            .single();
-
-                        if (existingClient) {
-                            clienteId = existingClient.id;
-                        } else {
-                            const { data: newClient, error: clientError } = await this.supabase
-                                .from('clientes')
-                                .insert([{
-                                    email: orderData.email,
-                                    nombre: orderData.nombre,
-                                    telefono: orderData.telefono,
-                                    direccion: orderData.direccion,
-                                    comuna: orderData.comuna
-                                }])
-                                .select()
-                                .single();
-                            if (clientError) throw clientError;
-                            clienteId = newClient.id;
-                        }
-
-                        // 2. Insertar el pedido
-                        const subtotal = items.reduce((sum, item) => sum + (item.precio * item.quantity), 0);
-                        const numeroPedido = 'CC-' + Math.floor(1000 + Math.random() * 9000);
-
-                        const { data: order, error: orderError } = await this.supabase
-                            .from('pedidos')
-                            .insert([{
-                                numero_pedido: numeroPedido,
-                                cliente_id: clienteId,
-                                subtotal: subtotal,
-                                costo_envio: orderData.total - subtotal,
-                                total: orderData.total,
-                                direccion_envio: orderData.direccion,
-                                comuna: orderData.comuna,
-                                estado: 'pendiente',
-                                fecha_pago: null
-                            }])
-                            .select()
-                            .single();
-
-                        if (orderError) throw orderError;
-
-                        // 3. Insertar los items del pedido
-                        const itemsToInsert = items.map(item => ({
-                            pedido_id: order.id,
-                            producto_id: item.id,
-                            producto_nombre: item.nombre,
-                            cantidad: item.quantity,
-                            precio_unitario: item.precio,
-                            subtotal: item.precio * item.quantity
-                        }));
-
-                        const { error: itemsError } = await this.supabase
-                            .from('pedido_items')
-                            .insert(itemsToInsert);
-
-                        if (itemsError) throw itemsError;
-
-                        return order;
-                    } catch (error) {
-                        console.error("Error en createPedido:", error);
-                        throw error;
-                    }
-                }
+        if (this.mode === 'local') {
+            const clientes = JSON.parse(localStorage.getItem('clientes') || '[]');
+            let c = clientes.find(cli => cli.email === email);
+            if (!c) {
+                c = { id: Date.now(), email, nombre };
+                clientes.push(c);
+                localStorage.setItem('clientes', JSON.stringify(clientes));
             }
-        };
-
-        // Inicializar al cargar
-        if (DataManager.mode === 'supabase') {
-            DataManager.initSupabase();
+            return c;
+        } else {
+            const { data: existing } = await this.supabase.from('clientes').select('*').eq('email', email).maybeSingle();
+            if (existing) return existing;
+            const { data: created, error } = await this.supabase.from('clientes').insert([{ email, nombre }]).select().single();
+            if (error) throw error;
+            return created;
         }
+    },
 
-        console.log(`📊 DataManager inicializado en modo: ${DataManager.mode}`);
+    // ===== PEDIDOS =====
+    async getPedidosFull() {
+        if (this.mode === 'local') return JSON.parse(localStorage.getItem('orders') || '[]');
+        const { data, error } = await this.supabase
+            .from('pedidos')
+            .select('*, clientes(nombre)')
+            .order('created_at', { ascending: false });
+        if (error) throw error;
+        return data.map(o => ({
+            id: o.id,
+            fecha: o.created_at,
+            cliente: o.clientes?.nombre || 'Anónimo',
+            total: o.total,
+            estado: o.estado
+        }));
+    },
+
+    async createPedido(orderData, items) {
+        if (this.mode === 'local') {
+            const orders = JSON.parse(localStorage.getItem('orders') || '[]');
+            const newO = { id: Date.now(), ...orderData, items, fecha: new Date().toISOString(), estado: 'Pendiente' };
+            orders.push(newO);
+            localStorage.setItem('orders', JSON.stringify(orders));
+            return newO;
+        } else {
+            // Lógica simplificada de pedido para Supabase
+            const cliente = await this.getOrCreateCliente(orderData.email, orderData.nombre);
+            const numeroPedido = 'CC-' + Math.floor(1000 + Math.random() * 9000);
+
+            const { data: order, error: orderError } = await this.supabase
+                .from('pedidos')
+                .insert([{
+                    numero_pedido: numeroPedido,
+                    cliente_id: cliente.id,
+                    total: orderData.total,
+                    direccion_envio: orderData.direccion,
+                    comuna: orderData.comuna,
+                    estado: 'pendiente'
+                }])
+                .select().single();
+            if (orderError) throw orderError;
+
+            const itemsToInsert = items.map(item => ({
+                pedido_id: order.id,
+                producto_id: item.id,
+                producto_nombre: item.nombre,
+                cantidad: item.quantity,
+                precio_unitario: item.precio,
+                subtotal: item.precio * item.quantity
+            }));
+            await this.supabase.from('pedido_items').insert(itemsToInsert);
+            return order;
+        }
+    }
+};
+
+if (DataManager.mode === 'supabase') DataManager.initSupabase();
+console.log(`📊 DataManager inicializado en modo: ${DataManager.mode}`);
