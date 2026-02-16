@@ -402,15 +402,26 @@ const DataManager = {
             localStorage.setItem('config', JSON.stringify(config));
             return true;
         } else {
-            // Upsert directo usando 'clave' como resolución de conflicto.
-            // Esto requiere que el RLS permita tanto SELECT como INSERT/UPDATE.
-            const { error } = await this.supabase
-                .from('configuracion')
-                .upsert({ clave: key, valor: value }, { onConflict: 'clave' });
+            console.log(`📡 Intentando guardar config: ${key}...`);
 
-            if (error) {
-                console.error(`❌ Error en setConfig (${key}):`, error);
-                throw error;
+            // 1. Intentar actualizar el registro existente
+            const { data, error: updateError } = await this.supabase
+                .from('configuracion')
+                .update({ valor: value, updated_at: new Date().toISOString() })
+                .eq('clave', key)
+                .select();
+
+            // 2. Si no se actualizó nada (o no existía), insertarlo
+            if (updateError || !data || data.length === 0) {
+                console.log(`📝 No existe '${key}', creando nuevo registro...`);
+                const { error: insertError } = await this.supabase
+                    .from('configuracion')
+                    .insert([{ clave: key, valor: value }]);
+
+                if (insertError) {
+                    console.error(`❌ Error final al insertar ${key}:`, insertError);
+                    throw insertError;
+                }
             }
             return true;
         }

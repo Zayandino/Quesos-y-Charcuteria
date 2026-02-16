@@ -537,8 +537,9 @@ window.saveSystemConfig = async function () {
 
         alert('✅ Configuración guardada con éxito.');
     } catch (error) {
-        console.error('Error saving config:', error);
-        alert('❌ Error al guardar la configuración: ' + (error.message || 'Error de permisos o base de datos.'));
+        console.error('Error detallado de guardado:', error);
+        const errorMsg = error.message || error.details || 'Error desconocido';
+        alert(`❌ Error al guardar la configuración: ${errorMsg}\n\nSi el error persiste, verifica las políticas RLS en Supabase.`);
     }
 }
 
