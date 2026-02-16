@@ -1,0 +1,773 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Panel - Cabra & Curado</title>
+    <!-- Fuentes -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600&family=Playfair+Display:ital,wght@0,400;0,600;1,400&display=swap"
+        rel="stylesheet">
+
+    <!-- Estilos -->
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        /* Estilos específicos para Admin DARK MODE */
+        :root {
+            --bg-main: #121212;
+            --bg-sidebar: #0f0f0f;
+            --bg-card: #1E1E1E;
+            --text-main: #e0e0e0;
+            --text-muted: #888;
+            --primary: #D4AF37;
+            /* Dorado */
+            --accent: #FF5A36;
+            --border: rgba(255, 255, 255, 0.08);
+            --radius-lg: 12px;
+            --shadow-card: 0 4px 20px rgba(0, 0, 0, 0.4);
+        }
+
+        body {
+            background-color: var(--bg-main);
+            color: var(--text-main);
+            font-family: 'Outfit', sans-serif;
+            margin: 0;
+        }
+
+        .admin-layout {
+            display: flex;
+            min-height: 100vh;
+        }
+
+        /* Sidebar Dark */
+        .sidebar {
+            width: 260px;
+            background: var(--bg-sidebar);
+            border-right: 1px solid var(--border);
+            padding: 2rem;
+            position: fixed;
+            height: 100vh;
+            overflow-y: auto;
+        }
+
+        .admin-content {
+            margin-left: 260px;
+            flex: 1;
+            padding: 2.5rem;
+        }
+
+        .sidebar-logo {
+            font-family: 'Playfair Display', serif;
+            font-size: 1.4rem;
+            margin-bottom: 3rem;
+            color: var(--primary);
+            letter-spacing: 0.05em;
+        }
+
+        .sidebar-logo span {
+            color: white;
+            font-style: italic;
+        }
+
+        .nav-item {
+            display: flex;
+            align-items: center;
+            gap: 0.8rem;
+            padding: 1rem;
+            color: var(--text-muted);
+            border-radius: 8px;
+            margin-bottom: 0.5rem;
+            transition: 0.3s;
+            cursor: pointer;
+            font-size: 0.95rem;
+        }
+
+        .nav-item:hover,
+        .nav-item.active {
+            background: rgba(212, 175, 55, 0.15);
+            /* Gold tint */
+            color: var(--primary);
+        }
+
+        /* Header & Cards Dark */
+        .admin-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2.5rem;
+            background: var(--bg-card);
+            padding: 1.5rem 2rem;
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-card);
+            border: 1px solid var(--border);
+        }
+
+        .admin-header h2 {
+            margin: 0;
+            font-family: 'Playfair Display', serif;
+            color: var(--primary);
+        }
+
+        .stat-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2.5rem;
+        }
+
+        .stat-card {
+            background: var(--bg-card);
+            padding: 1.8rem;
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-card);
+            border: 1px solid var(--border);
+        }
+
+        .stat-value {
+            font-size: 2.2rem;
+            font-weight: 700;
+            color: white;
+            margin-top: 0.5rem;
+        }
+
+        .stat-label {
+            color: var(--text-muted);
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        /* Tabla Dark */
+        .data-table {
+            background: var(--bg-card);
+            border-radius: var(--radius-lg);
+            overflow: hidden;
+            box-shadow: var(--shadow-card);
+            border: 1px solid var(--border);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th,
+        td {
+            padding: 1.2rem 1.5rem;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+        }
+
+        th {
+            background: rgba(0, 0, 0, 0.2);
+            font-weight: 600;
+            color: var(--text-muted);
+            font-size: 0.85rem;
+            text-transform: uppercase;
+        }
+
+        tr:hover {
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .status-badge {
+            padding: 0.3rem 0.8rem;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 700;
+        }
+
+        .status-active {
+            background: rgba(46, 204, 113, 0.2);
+            color: #2ecc71;
+        }
+
+        .status-inactive {
+            background: rgba(231, 76, 60, 0.2);
+            color: #e74c3c;
+        }
+
+        .action-btn {
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: var(--text-muted);
+            margin-right: 0.8rem;
+            font-size: 1.2rem;
+            transition: 0.2s;
+        }
+
+        .action-btn:hover {
+            color: var(--primary);
+            transform: scale(1.1);
+        }
+
+        /* Modal Form Dark */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 2000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.85);
+            /* Más oscuro */
+            backdrop-filter: blur(8px);
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-form {
+            background: #252525;
+            padding: 2.5rem;
+            border-radius: var(--radius-lg);
+            width: 700px;
+            /* Ancho fijo para layout grid */
+            max-width: 95%;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+            border: 1px solid var(--primary);
+            /* Borde dorado */
+            animation: slideUp 0.3s ease;
+            color: var(--text-main);
+        }
+
+        @keyframes slideUp {
+            from {
+                transform: translateY(20px);
+                opacity: 0;
+            }
+
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        .form-group {
+            margin-bottom: 1.2rem;
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: 0.6rem;
+            font-weight: 600;
+            font-size: 0.9rem;
+            color: var(--primary);
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 1rem;
+            background: #151515;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-family: var(--font-body);
+            color: white;
+            font-size: 0.95rem;
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: var(--primary);
+            background: #1a1a1a;
+        }
+
+        /* Botones */
+        .btn {
+            padding: 0.8rem 1.5rem;
+            border-radius: 6px;
+            border: none;
+            font-weight: 600;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: 0.2s;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: #121212;
+        }
+
+        .btn-primary:hover {
+            background: #e5bd3d;
+            transform: translateY(-2px);
+        }
+
+        .btn-secondary {
+            background: transparent;
+            border: 1px solid var(--border);
+            color: var(--text-main);
+        }
+
+        .btn-secondary:hover {
+            border-color: var(--text-main);
+            background: rgba(255, 255, 255, 0.05);
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- Login Screen -->
+    <div id="loginScreen" style="
+        position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+        background: var(--bg-main); z-index: 3000;
+        display: flex; align-items: center; justify-content: center;
+        flex-direction: column;
+    ">
+        <div style="text-align: center; margin-bottom: 2rem;">
+            <h1 style="font-size: 2.5rem; margin-bottom: 0.5rem; font-family: 'Playfair Display', serif;">CABRA & <span
+                    style="color:var(--primary)">CURADO</span></h1>
+            <p style="color: var(--text-muted); letter-spacing: 0.1em; text-transform: uppercase; font-size: 0.8rem;">
+                Acceso Administrativo</p>
+        </div>
+
+        <form id="loginForm" onsubmit="login(event)" style="
+            background: var(--bg-card); padding: 3rem; border-radius: var(--radius-lg);
+            border: 1px solid var(--border); box-shadow: var(--shadow-card);
+            width: 100%; max-width: 400px;
+        ">
+            <div class="form-group">
+                <label class="form-label">Correo Electrónico</label>
+                <input type="email" id="adminEmail" class="form-control" placeholder="admin@cabranycurado.cl" required>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Contraseña</label>
+                <input type="password" id="adminPass" class="form-control" placeholder="••••••••" required>
+            </div>
+            <button type="submit" class="btn btn-primary" style="width: 100%;">Ingresar al Panel</button>
+            <p id="loginError" style="color: #e74c3c; margin-top: 1rem; font-size: 0.9rem; display: none;">Acceso
+                denegado. Verifica tus credenciales o permisos.</p>
+        </form>
+    </div>
+
+    <!-- Admin Layout (Oculto por defecto) -->
+    <div class="admin-layout" id="adminLayout" style="display: none;">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-logo">
+                CABRA & <span>CURADO</span>
+            </div>
+            <nav>
+                <a class="nav-item active" onclick="showSection('dashboard')">📊 Dashboard</a>
+                <a class="nav-item" onclick="showSection('products')">🧀 Productos</a>
+                <a class="nav-item" onclick="showSection('subscribers')">👥 Suscriptores</a>
+                <a class="nav-item" onclick="showSection('orders')">📦 Pedidos</a>
+                <a class="nav-item" onclick="showSection('configuracion')">⚙️ Configuración</a>
+                <a class="nav-item" onclick="showSection('producers')">👨‍🌾 Productores</a>
+                <a class="nav-item" onclick="logout()" style="margin-top: 2rem; color: #e74c3c;">🚪 Cerrar Sesión</a>
+            </nav>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="admin-content">
+
+            <!-- Dashboard Section -->
+            <section id="dashboard" class="content-section">
+                <div class="admin-header">
+                    <h2>Resumen General</h2>
+                    <span class="status-badge status-active">Sistema en Línea</span>
+                </div>
+
+                <div class="stat-cards">
+                    <div class="stat-card">
+                        <div class="stat-label">Ventas Hoy</div>
+                        <div class="stat-value" id="todaySales">$0</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Pedidos Pendientes</div>
+                        <div class="stat-value" id="pendingOrders">0</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Productos Activos</div>
+                        <div class="stat-value" id="totalProducts">0</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Suscriptores VIP</div>
+                        <div class="stat-value" id="totalSubscribers">0</div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Products Section -->
+            <section id="products" class="content-section" style="display: none;">
+                <div class="admin-header">
+                    <h2>Inventario de Productos</h2>
+                    <button class="btn btn-primary btn-sm" onclick="openProductModal()">+ Nuevo Producto</button>
+                </div>
+
+                <div class="data-table">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Nombre</th>
+                                <th>Categoría</th>
+                                <th>Precio</th>
+                                <th>Stock</th>
+                                <th>Estado</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="productsTableBody">
+                            <!-- JS Generated -->
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- Orders Section -->
+            <section id="orders" class="content-section" style="display: none;">
+                <div class="admin-header">
+                    <h2>Gestión de Pedidos</h2>
+                    <button class="btn btn-secondary btn-sm" onclick="loadOrders()">🔄 Actualizar</button>
+                </div>
+
+                <div class="data-table">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Pedido</th>
+                                <th>Fecha</th>
+                                <th>Cliente</th>
+                                <th>Productos</th>
+                                <th>Total</th>
+                                <th>Estado</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="ordersTableBody">
+                            <!-- JS Generated -->
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <section id="subscribers" class="content-section" style="display: none;">
+                <div class="admin-header">
+                    <h2>Gestión de Suscriptores</h2>
+                    <span class="status-badge" style="background: var(--bg-card); color: var(--gold);">Registrados vía
+                        web</span>
+                </div>
+
+                <div class="data-table">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Nombre</th>
+                                <th>Email</th>
+                                <th>Plan</th>
+                                <th>Fecha Inicio</th>
+                                <th>Estado</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="subscribersTableBody">
+                            <!-- JS Generated -->
+                        </tbody>
+                    </table>
+                </div>
+                <!-- Producers Section -->
+                <section id="producers" class="content-section" style="display: none;">
+                    <div class="admin-header">
+                        <h2>Gestión de Productores</h2>
+                        <button class="btn btn-primary btn-sm" onclick="openProducerModal()">+ Nuevo Productor</button>
+                    </div>
+
+                    <div class="data-table">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Nombre</th>
+                                    <th>Ubicación</th>
+                                    <th>Especialidad</th>
+                                    <th>Estado</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="producersTableBody">
+                                <!-- JS Generated -->
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <!-- Configuración Section -->
+                <section id="configuracion" class="content-section" style="display: none;">
+                    <div class="admin-header">
+                        <h2>Configuración del Sistema</h2>
+                        <button class="btn btn-primary btn-sm" onclick="saveSystemConfig()">Guardar Cambios</button>
+                    </div>
+
+                    <div class="stat-cards" style="grid-template-columns: 1fr;">
+                        <div class="stat-card">
+                            <h4 style="margin-bottom: 1.5rem; color: var(--primary);">Redes Sociales</h4>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
+                                <div class="form-group">
+                                    <label class="form-label">Instagram URL</label>
+                                    <input type="text" id="conf_instagram" class="form-control"
+                                        placeholder="https://instagram.com/tu_cuenta">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Facebook URL</label>
+                                    <input type="text" id="conf_facebook" class="form-control"
+                                        placeholder="https://facebook.com/tu_pagina">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">WhatsApp (Número)</label>
+                                    <input type="text" id="conf_whatsapp" class="form-control"
+                                        placeholder="+56912345678">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Email de Contacto</label>
+                                    <input type="email" id="conf_email" class="form-control"
+                                        placeholder="hola@tuempresa.com">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="stat-card">
+                            <h4 style="margin-bottom: 1.5rem; color: var(--primary);">Integración Mercado Pago</h4>
+                            <div style="display: grid; grid-template-columns: 1fr; gap: 1.5rem;">
+                                <div class="form-group">
+                                    <label class="form-label">Public Key (Mercado Pago)</label>
+                                    <input type="text" id="conf_mp_public" class="form-control"
+                                        placeholder="APP_USR-...">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Access Token</label>
+                                    <input type="password" id="conf_mp_access" class="form-control"
+                                        placeholder="APP_USR-...">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="stat-card">
+                            <h4 style="margin-bottom: 1.5rem; color: var(--primary);">Parámetros de Venta</h4>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
+                                <div class="form-group">
+                                    <label class="form-label">Compra Mínima ($)</label>
+                                    <input type="number" id="conf_min_purchase" class="form-control"
+                                        placeholder="15000">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Envío Gratis Desde ($)</label>
+                                    <input type="number" id="conf_free_shipping" class="form-control"
+                                        placeholder="50000">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+        </main>
+    </div>
+
+    <!-- Product Modal Completo -->
+    <div class="modal" id="productModal">
+        <div class="modal-form" style="width: 700px;"> <!-- Más ancho -->
+            <div class="modal-header-simple"
+                style="display: flex; justify-content: space-between; align-items: center; padding: 1.5rem 2.5rem; border-bottom: 1px solid var(--border); position: sticky; top: 0; background: #252525; z-index: 10;">
+                <h3 style="margin: 0;">Gestionar Producto</h3>
+                <button type="button" onclick="closeProductModal()"
+                    style="background:none; border:none; font-size: 1.5rem; cursor:pointer; color: var(--text-main); line-height: 1;">&times;</button>
+            </div>
+
+            <div style="max-height: calc(90vh - 140px); overflow-y: auto; padding: 2.5rem;">
+                <form id="productForm" style="display: grid; grid-template-columns: 1fr 300px; gap: 2rem;">
+                    <input type="hidden" id="prodId">
+
+                    <!-- Columna Izquierda: Datos Básicos -->
+                    <div class="form-left">
+                        <div class="form-group">
+                            <label class="form-label">Nombre del Producto</label>
+                            <input type="text" id="prodName" class="form-control" placeholder="Ej: Queso de Cabra Añejo"
+                                required>
+                        </div>
+
+                        <div class="form-group" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                            <div>
+                                <label class="form-label">Precio Final ($)</label>
+                                <input type="number" id="prodPrice" class="form-control" placeholder="0" required
+                                    oninput="calculateIVA()">
+                            </div>
+                            <div>
+                                <label class="form-label">Stock</label>
+                                <input type="number" id="prodStock" class="form-control" placeholder="0" required>
+                            </div>
+                        </div>
+
+                        <div id="ivaBreakdown"
+                            style="background: rgba(0,0,0,0.2); padding: 1rem; border-radius: 6px; margin-bottom: 1.2rem; display: flex; justify-content: space-around; font-size: 0.85rem;">
+                            <div><span style="color: var(--text-muted)">Neto:</span> <span id="valNeto">$0</span></div>
+                            <div><span style="color: var(--text-muted)">IVA (19%):</span> <span id="valIVA">$0</span>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">Categoría</label>
+                            <select id="prodCategory" class="form-control">
+                                <option value="queso">🧀 Queso</option>
+                                <option value="embutido">🥓 Embutido</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">Productor</label>
+                            <select id="prodProducer" class="form-control">
+                                <option value="">Selecciona un productor...</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">Descripción Detallada</label>
+                            <textarea id="prodDesc" class="form-control" rows="4"
+                                placeholder="Describe el sabor, textura y origen..." required></textarea>
+                        </div>
+                    </div>
+
+                    <!-- Columna Derecha: Imagen -->
+                    <div class="form-right">
+                        <div class="form-group">
+                            <label class="form-label">Imagen del Producto</label>
+                            <!-- Preview Box -->
+                            <div id="imagePreview" style="
+                            width: 100%; 
+                            aspect-ratio: 1; 
+                            background: #151515; 
+                            border-radius: 8px; 
+                            margin-bottom: 1rem;
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                            overflow: hidden;
+                            border: 1px dashed var(--border);
+                            color: var(--text-muted);
+                        ">
+                                <span style="font-size: 0.8rem;">Sin imagen</span>
+                            </div>
+
+                            <input type="file" id="prodImageFile" class="form-control" accept="image/*"
+                                onchange="handleImageUpload(this)">
+                            <input type="hidden" id="prodImage">
+                            <p style="font-size: 0.75rem; color: #666; margin-top: 0.5rem;" id="uploadStatus">
+                                * Selecciona una foto para subirla automáticamente.
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- Botones (Full Width) -->
+                    <div
+                        style="grid-column: 1 / -1; display: flex; gap: 1rem; margin-top: 1rem; border-top: 1px solid var(--border); padding-top: 1.5rem;">
+                        <button type="button" class="btn btn-secondary btn-sm" onclick="closeProductModal()"
+                            style="flex: 1;">Cancelar</button>
+                        <button type="submit" class="btn btn-primary btn-sm" style="flex: 1;">Guardar Producto</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Subscriber Modal -->
+        <div class="modal" id="subscriberModal">
+            <div class="modal-form" style="width: 500px;">
+                <div class="modal-header-simple"
+                    style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                    <h3 style="margin: 0;">Gestionar Suscriptor</h3>
+                    <button type="button" onclick="closeSubscriberModal()"
+                        style="background:none; border:none; font-size: 1.5rem; cursor:pointer; color: var(--text-main);">&times;</button>
+                </div>
+
+                <form id="subscriberForm">
+                    <input type="hidden" id="subId">
+                    <div class="form-group">
+                        <label class="form-label">Nombre Completo</label>
+                        <input type="text" id="subName" class="form-control" placeholder="Nombre..." required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Email</label>
+                        <input type="email" id="subEmail" class="form-control" placeholder="Email..." required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Plan</label>
+                        <select id="subPlan" class="form-control">
+                            <option value="Descubrimiento">Descubrimiento ($29.990)</option>
+                            <option value="Experiencia Total">Experiencia Total ($49.990)</option>
+                            <option value="Coleccionista">Coleccionista ($79.990)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Estado</label>
+                        <select id="subStatus" class="form-control">
+                            <option value="activo">Activo</option>
+                            <option value="pendiente">Pendiente</option>
+                            <option value="cancelado">Cancelado</option>
+                        </select>
+                    </div>
+
+                    <div style="display: flex; gap: 1rem; margin-top: 1.5rem;">
+                        <button type="button" class="btn btn-secondary" style="flex: 1;"
+                            onclick="closeSubscriberModal()">Cancelar</button>
+                        <button type="submit" class="btn btn-primary" style="flex: 1;">Guardar Suscriptor</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- SUPABASE & SCRIPTS -->
+        <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+        <script src="data-manager.js"></script>
+        <script src="admin.js"></script>
+        <!-- Producer Modal -->
+        <div id="producerModal" class="modal-overlay">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>Detalles del Productor</h3>
+                    <button class="close-modal" onclick="closeProducerModal()">×</button>
+                </div>
+                <form id="producerForm" onsubmit="event.preventDefault(); saveProducer();">
+                    <input type="hidden" id="producerId">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                        <div class="form-group">
+                            <label class="form-label">Nombre del Productor</label>
+                            <input type="text" id="producerName" class="form-control" placeholder="Ej: Finca Los Andes"
+                                required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Ubicación</label>
+                            <input type="text" id="producerLocation" class="form-control"
+                                placeholder="Ej: Los Andes, Chile" required>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Especialidad</label>
+                        <input type="text" id="producerSpecialty" class="form-control" placeholder="Ej: Quesos Maduros">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Historia / Descripción</label>
+                        <textarea id="producerHistory" class="form-control" rows="4"
+                            placeholder="Cuéntanos sobre este productor..."></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Estado</label>
+                        <select id="producerStatus" class="form-control">
+                            <option value="true">Activo</option>
+                            <option value="false">Inactivo</option>
+                        </select>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" onclick="closeProducerModal()">Cancelar</button>
+                        <button type="submit" class="btn btn-primary">Guardar Productor</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+</body>
+
+</html>
