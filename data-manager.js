@@ -402,26 +402,15 @@ const DataManager = {
             localStorage.setItem('config', JSON.stringify(config));
             return true;
         } else {
-            // Estrategia robusta: intentar actualizar primero, si falla o no afecta filas, insertar.
-            const { data, error: updateError } = await this.supabase
+            // Upsert directo usando 'clave' como resolución de conflicto.
+            // Esto requiere que el RLS permita tanto SELECT como INSERT/UPDATE.
+            const { error } = await this.supabase
                 .from('configuracion')
-                .update({ valor: value })
-                .eq('clave', key)
-                .select();
+                .upsert({ clave: key, valor: value }, { onConflict: 'clave' });
 
-            if (updateError) {
-                console.warn(`Intento de update fallido para ${key}, intentando insert...`);
-                const { error: insertError } = await this.supabase
-                    .from('configuracion')
-                    .insert([{ clave: key, valor: value }]);
-
-                if (insertError) throw insertError;
-            } else if (!data || data.length === 0) {
-                // Si el update no dio error pero no encontró la fila
-                const { error: insertError } = await this.supabase
-                    .from('configuracion')
-                    .insert([{ clave: key, valor: value }]);
-                if (insertError) throw insertError;
+            if (error) {
+                console.error(`❌ Error en setConfig (${key}):`, error);
+                throw error;
             }
             return true;
         }
