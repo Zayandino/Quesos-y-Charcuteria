@@ -362,7 +362,6 @@
                 <a class="nav-item" onclick="showSection('subscribers')">👥 Suscriptores</a>
                 <a class="nav-item" onclick="showSection('orders')">📦 Pedidos</a>
                 <a class="nav-item" onclick="showSection('configuracion')">⚙️ Configuración</a>
-                <a class="nav-item" onclick="showSection('producers')">👨‍🌾 Productores</a>
                 <a class="nav-item" onclick="logout()" style="margin-top: 2rem; color: #e74c3c;">🚪 Cerrar Sesión</a>
             </nav>
         </aside>
@@ -449,7 +448,7 @@
                     </table>
                 </div>
             </section>
-
+            <!-- Subscribers Section -->
             <section id="subscribers" class="content-section" style="display: none;">
                 <div class="admin-header">
                     <h2>Gestión de Suscriptores</h2>
@@ -474,98 +473,99 @@
                         </tbody>
                     </table>
                 </div>
-                <!-- Producers Section -->
-                <section id="producers" class="content-section" style="display: none;">
-                    <div class="admin-header">
-                        <h2>Gestión de Productores</h2>
-                        <button class="btn btn-primary btn-sm" onclick="openProducerModal()">+ Nuevo Productor</button>
-                    </div>
+            </section>
 
-                    <div class="data-table">
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th>Nombre</th>
-                                    <th>Ubicación</th>
-                                    <th>Especialidad</th>
-                                    <th>Estado</th>
-                                    <th>Acciones</th>
-                                </tr>
-                            </thead>
-                            <tbody id="producersTableBody">
-                                <!-- JS Generated -->
-                            </tbody>
-                        </table>
-                    </div>
-                </section>
+            <section id="configuracion" class="content-section" style="display: none;">
+                <div class="admin-header">
+                    <h2>Configuración y Productores</h2>
+                    <button class="btn btn-primary btn-sm" onclick="saveSystemConfig()">Guardar Cambios</button>
+                </div>
 
-                <!-- Configuración Section -->
-                <section id="configuracion" class="content-section" style="display: none;">
-                    <div class="admin-header">
-                        <h2>Configuración del Sistema</h2>
-                        <button class="btn btn-primary btn-sm" onclick="saveSystemConfig()">Guardar Cambios</button>
-                    </div>
-
-                    <div class="stat-cards" style="grid-template-columns: 1fr;">
-                        <div class="stat-card">
-                            <h4 style="margin-bottom: 1.5rem; color: var(--primary);">Redes Sociales</h4>
-                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
-                                <div class="form-group">
-                                    <label class="form-label">Instagram URL</label>
-                                    <input type="text" id="conf_instagram" class="form-control"
-                                        placeholder="https://instagram.com/tu_cuenta">
-                                </div>
-                                <div class="form-group">
-                                    <label class="form-label">Facebook URL</label>
-                                    <input type="text" id="conf_facebook" class="form-control"
-                                        placeholder="https://facebook.com/tu_pagina">
-                                </div>
-                                <div class="form-group">
-                                    <label class="form-label">WhatsApp (Número)</label>
-                                    <input type="text" id="conf_whatsapp" class="form-control"
-                                        placeholder="+56912345678">
-                                </div>
-                                <div class="form-group">
-                                    <label class="form-label">Email de Contacto</label>
-                                    <input type="email" id="conf_email" class="form-control"
-                                        placeholder="hola@tuempresa.com">
-                                </div>
-                            </div>
+                <div class="stat-cards" style="grid-template-columns: 1fr;">
+                    <!-- Producers Card -->
+                    <div class="stat-card" id="producers-stat-card">
+                        <div
+                            style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                            <h4 style="color: var(--primary); margin: 0;">Gestión de Productores</h4>
+                            <button class="btn btn-primary btn-sm" onclick="openProducerModal()">+ Nuevo
+                                Productor</button>
                         </div>
-
-                        <div class="stat-card">
-                            <h4 style="margin-bottom: 1.5rem; color: var(--primary);">Integración Mercado Pago</h4>
-                            <div style="display: grid; grid-template-columns: 1fr; gap: 1.5rem;">
-                                <div class="form-group">
-                                    <label class="form-label">Public Key (Mercado Pago)</label>
-                                    <input type="text" id="conf_mp_public" class="form-control"
-                                        placeholder="APP_USR-...">
-                                </div>
-                                <div class="form-group">
-                                    <label class="form-label">Access Token</label>
-                                    <input type="password" id="conf_mp_access" class="form-control"
-                                        placeholder="APP_USR-...">
-                                </div>
-                            </div>
+                        <div class="data-table" style="max-height: 400px; overflow-y: auto;">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Nombre</th>
+                                        <th>Ubicación</th>
+                                        <th>Especialidad</th>
+                                        <th>Estado</th>
+                                        <th>Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="producersTableBody">
+                                    <!-- JS Generated -->
+                                </tbody>
+                            </table>
                         </div>
+                    </div>
 
-                        <div class="stat-card">
-                            <h4 style="margin-bottom: 1.5rem; color: var(--primary);">Parámetros de Venta</h4>
-                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
-                                <div class="form-group">
-                                    <label class="form-label">Compra Mínima ($)</label>
-                                    <input type="number" id="conf_min_purchase" class="form-control"
-                                        placeholder="15000">
-                                </div>
-                                <div class="form-group">
-                                    <label class="form-label">Envío Gratis Desde ($)</label>
-                                    <input type="number" id="conf_free_shipping" class="form-control"
-                                        placeholder="50000">
-                                </div>
+                    <!-- Redes Sociales y Parámetros Card -->
+                    <div class="stat-card">
+                        <h4 style="margin-bottom: 1.5rem; color: var(--primary);">Redes Sociales</h4>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
+                            <div class="form-group">
+                                <label class="form-label">Instagram URL</label>
+                                <input type="text" id="conf_instagram" class="form-control"
+                                    placeholder="https://instagram.com/tu_cuenta">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Facebook URL</label>
+                                <input type="text" id="conf_facebook" class="form-control"
+                                    placeholder="https://facebook.com/tu_pagina">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">WhatsApp (Número)</label>
+                                <input type="text" id="conf_whatsapp" class="form-control" placeholder="+56912345678">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Email de Contacto</label>
+                                <input type="email" id="conf_email" class="form-control"
+                                    placeholder="hola@tuempresa.com">
                             </div>
                         </div>
                     </div>
-                </section>
+
+                    <!-- Mercado Pago Card -->
+                    <div class="stat-card">
+                        <h4 style="margin-bottom: 1.5rem; color: var(--primary);">Integración Mercado Pago</h4>
+                        <div style="display: grid; grid-template-columns: 1fr; gap: 1.5rem;">
+                            <div class="form-group">
+                                <label class="form-label">Public Key (Mercado Pago)</label>
+                                <input type="text" id="conf_mp_public" class="form-control" placeholder="APP_USR-...">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Access Token</label>
+                                <input type="password" id="conf_mp_access" class="form-control"
+                                    placeholder="APP_USR-...">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Parámetros Card -->
+                    <div class="stat-card">
+                        <h4 style="margin-bottom: 1.5rem; color: var(--primary);">Parámetros de Venta</h4>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
+                            <div class="form-group">
+                                <label class="form-label">Compra Mínima ($)</label>
+                                <input type="number" id="conf_min_purchase" class="form-control" placeholder="15000">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Envío Gratis Desde ($)</label>
+                                <input type="number" id="conf_free_shipping" class="form-control" placeholder="50000">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
         </main>
     </div>
 
@@ -724,11 +724,13 @@
         <script src="data-manager.js"></script>
         <script src="admin.js"></script>
         <!-- Producer Modal -->
-        <div id="producerModal" class="modal-overlay">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h3>Detalles del Productor</h3>
-                    <button class="close-modal" onclick="closeProducerModal()">×</button>
+        <div class="modal" id="producerModal">
+            <div class="modal-form" style="width: 550px;">
+                <div class="modal-header-simple"
+                    style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                    <h3 style="margin: 0;">Gestionar Productor</h3>
+                    <button type="button" onclick="closeProducerModal()"
+                        style="background:none; border:none; font-size: 1.5rem; cursor:pointer; color: var(--text-main);">&times;</button>
                 </div>
                 <form id="producerForm" onsubmit="event.preventDefault(); saveProducer();">
                     <input type="hidden" id="producerId">
@@ -760,9 +762,10 @@
                             <option value="false">Inactivo</option>
                         </select>
                     </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" onclick="closeProducerModal()">Cancelar</button>
-                        <button type="submit" class="btn btn-primary">Guardar Productor</button>
+                    <div style="display: flex; gap: 1rem; margin-top: 1.5rem;">
+                        <button type="button" class="btn btn-secondary" style="flex: 1;"
+                            onclick="closeProducerModal()">Cancelar</button>
+                        <button type="submit" class="btn btn-primary" style="flex: 1;">Guardar Productor</button>
                     </div>
                 </form>
             </div>

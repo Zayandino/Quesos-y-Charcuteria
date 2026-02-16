@@ -555,8 +555,9 @@ window.loadProducers = async function () {
 }
 
 window.openProducerModal = function () {
-    document.getElementById('producerForm').reset();
-    document.getElementById('prodId').value = '';
+    const form = document.getElementById('producerForm');
+    if (form) form.reset();
+    document.getElementById('producerId').value = '';
     document.getElementById('producerModal').classList.add('active');
     document.body.classList.add('no-scroll');
 }
@@ -617,6 +618,7 @@ const originalShowSection = window.showSection;
 window.showSection = function (id) {
     if (id === 'configuracion') {
         loadSystemConfig();
+        loadProducers();
     }
     originalShowSection(id);
 }

@@ -66,16 +66,21 @@ Quesos-y-Charcuteria/
 - ✅ Integración WhatsApp para pedidos
 - ✅ Panel admin completo
 
-### Fase 2: Base de Datos
-- [ ] Crear proyecto Supabase
-- [ ] Ejecutar schema SQL
-- [ ] Cambiar `mode: 'supabase'` en data-manager.js
-- [ ] Testing con datos reales
+### Fase 2: Base de Datos 
+- ✅ Crear proyecto Supabase
+- ✅ Ejecutar schema SQL mejorado
+- ✅ Cambiar `mode: 'supabase'` en data-manager.js
+- ✅ Implementación de **Supabase Storage** (Carga real de fotos)
+- ✅ Migración de **Suscripciones** a base de datos real
+- ✅ Panel de **Configuración** centralizado (RRSS, MP, Parámetros)
+- ✅ Autenticación de Admin mediante Supabase Auth
+- ✅ Testing con datos reales (CRUD completo)
 
 ### Fase 3: Pagos
-- [ ] Configurar Mercado Pago
+- [x] Habilitar campos de configuración Mercado Pago en Admin
+- [ ] Integración de botón de pago (SDK Mercado Pago)
 - [ ] Testing en Sandbox
-- [ ] Webhooks
+- [ ] Webhooks para actualización automática de pedidos
 - [ ] Producción
 
 ### Fase 4: Producción
@@ -106,7 +111,7 @@ FTP_PASS=xxxxx
 ## 📝 Uso del Panel Admin
 
 1. Abrir `admin.html`
-2. Login: password por defecto (cambiar en producción)
+2. Login: Email y contraseña gestionados por **Supabase Auth** (se requiere rol 'admin' en la tabla `usuarios_sistema`).
 3. Módulos disponibles:
    - Dashboard
    - Productores (CRUD)
