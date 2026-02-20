@@ -365,8 +365,8 @@
                 <a class="nav-item" onclick="showSection('configuracion')">⚙️ Configuración</a>
                 <a class="nav-item" onclick="logout()" style="margin-top: 2rem; color: #e74c3c;">🚪 Cerrar Sesión</a>
                 <div
-                    style="margin-top: 5rem; padding: 1rem; border-top: 1px solid rgba(255,255,255,0.05); font-size: 0.7rem; color: var(--text-muted); opacity: 0.5; text-align: center;">
-                    SISTEMA v1.1.0 - MP FIX
+                    style="margin-top: 5rem; padding: 1rem; border-top: 1px solid rgba(255,255,255,0.05); font-size: 0.7rem; color: var(--primary); font-weight: bold; text-align: center;">
+                    SISTEMA v2.1.0 - MP CORE
                 </div>
             </nav>
         </aside>
@@ -539,20 +539,13 @@
                         </div>
                     </div>
 
-                    <!-- Mercado Pago Card -->
-                    <div class="stat-card">
-                        <h4 style="margin-bottom: 1.5rem; color: var(--primary);">Integración Mercado Pago</h4>
-                        <div style="display: grid; grid-template-columns: 1fr; gap: 1.5rem;">
-                            <div class="form-group">
-                                <label class="form-label">Public Key (Mercado Pago)</label>
-                                <input type="text" id="conf_mp_public" class="form-control" placeholder="APP_USR-...">
-                            </div>
-                            <div class="form-group">
-                                <label class="form-label">Access Token</label>
-                                <input type="password" id="conf_mp_access" class="form-control"
-                                    placeholder="APP_USR-...">
-                            </div>
-                        </div>
+                    <!-- Mercado Pago - Protegido en config.js -->
+                    <div class="stat-card" style="border: 1px solid rgba(46, 204, 113, 0.2); background: rgba(46, 204, 113, 0.05);">
+                        <h4 style="margin-bottom: 0.8rem; color: #2ecc71;">🔒 Integración Mercado Pago</h4>
+                        <p style="color: var(--text-muted); font-size: 0.85rem; margin: 0;">
+                            Las credenciales de Mercado Pago están protegidas en el archivo <code style="background:#333; padding:2px 6px; border-radius:4px;">config.js</code> 
+                            y no se exponen en el panel por seguridad.
+                        </p>
                     </div>
 
                     <!-- Parámetros Card -->
@@ -727,8 +720,8 @@
         <!-- SUPABASE & SCRIPTS -->
         <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
         <script src="config.js"></script>
-        <script src="data-manager.js?v=1.1.0"></script>
-        <script src="admin.js?v=1.1.0"></script>
+        <script src="data-manager_v2.js?v=2.1.0"></script>
+        <script src="admin_v2.js?v=2.1.0"></script>
         <!-- Producer Modal -->
         <div class="modal" id="producerModal">
             <div class="modal-form" style="width: 550px;">
