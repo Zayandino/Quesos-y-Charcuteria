@@ -1,6 +1,6 @@
 FROM nginx:alpine
 
-# Copiar configuración personalizada de nginx
+# Copiar configuración de nginx
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
 # Copiar archivos del sitio
@@ -12,9 +12,11 @@ COPY app.js /usr/share/nginx/html/
 COPY admin_v2.js /usr/share/nginx/html/
 COPY data-manager_v2.js /usr/share/nginx/html/
 
-# Copiar config.js solo si existe (se maneja con variables de entorno en producción)
-# NOTA: En producción, config.js se debe crear manualmente o via Coolify env vars
+# Copiar script de inicio
+COPY docker-entrypoint.sh /docker-entrypoint.sh
+RUN chmod +x /docker-entrypoint.sh
 
 EXPOSE 80
 
-CMD ["nginx", "-g", "daemon off;"]
+# Genera config.js desde variables de entorno y luego inicia nginx
+ENTRYPOINT ["/docker-entrypoint.sh"]
