@@ -1,0 +1,12 @@
+.git
+.gitignore
+.agent
+node_modules
+*.md
+*.sql
+*.log
+Dockerfile.dev
+docker-compose.dev.yml
+config.js
+.env
+.DS_Store
