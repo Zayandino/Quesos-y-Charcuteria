@@ -77,6 +77,52 @@ const DataManager = {
         return null;
     },
 
+    // Helper para limpiar mojibakes y URLs incorrectas de la base de datos
+    sanitizeText(text) {
+        if (!text) return text;
+        return text.replace(/CHILL\?\?N/g, 'Chillán')
+            .replace(/Chill\?\?n/g, 'Chillán')
+            .replace(/\?\?UBLE/g, 'Ñuble')
+            .replace(/\?\?uble/g, 'Ñuble')
+            .replace(/L\?\?cteos/g, 'Lácteos')
+            .replace(/R\?\?OS/g, 'Ríos')
+            .replace(/R\?\?os/g, 'Ríos')
+            .replace(/REGI\?\?N/g, 'Región')
+            .replace(/Regi\?\?n/g, 'Región')
+            .replace(/tradici\?\?n/g, 'tradición')
+            .replace(/Maduraci\?\?n/g, 'Maduración')
+            .replace(/maduraci\?\?n/g, 'maduración')
+            .replace(/m\?\?s/g, 'más')
+            .replace(/est\?\?ndares/g, 'estándares')
+            .replace(/queser\?\?a/g, 'quesería')
+            .replace(/adici\?\?n/g, 'adición')
+            .replace(/coraz\?\?n/g, 'corazón')
+            .replace(/\?\?nicos/g, 'únicos')
+            .replace(/mediterr\?\?neas/g, 'mediterráneas')
+            .replace(/creaci\?\?n/g, 'creación')
+            .replace(/aut\?\?ntico/g, 'auténtico')
+            .replace(/\?\?cida/g, 'ácida')
+            .replace(/\?\?cidos/g, 'ácidos')
+            .replace(/\?\?cido/g, 'ácido');
+    },
+
+    sanitizeItem(item) {
+        if (!item) return item;
+        const result = { ...item };
+        if (result.nombre) result.nombre = this.sanitizeText(result.nombre);
+        if (result.descripcion) result.descripcion = this.sanitizeText(result.descripcion);
+        if (result.ubicacion) result.ubicacion = this.sanitizeText(result.ubicacion);
+        if (result.especialidad) result.especialidad = this.sanitizeText(result.especialidad);
+        if (result.historia) result.historia = this.sanitizeText(result.historia);
+        if (result.productor_nombre) result.productor_nombre = this.sanitizeText(result.productor_nombre);
+        
+        // Bloquear explícitamente las URLs de imágenes inválidas de la BD (como Bender o bolsas)
+        if (result.imagen_url && result.imagen_url.includes('unsplash.com')) {
+            result.imagen_url = null;
+        }
+        return result;
+    },
+
     // ===== PRODUCTORES =====
     async getProductores(filters = {}) {
         if (this.mode === 'local') {
@@ -84,7 +130,7 @@ const DataManager = {
             if (filters.activo !== undefined) {
                 productores = productores.filter(p => p.activo === filters.activo);
             }
-            return productores;
+            return productores.map(p => this.sanitizeItem(p));
         } else {
             let query = this.supabase.from('dcava_productores').select('*');
             if (filters.activo !== undefined) {
@@ -92,7 +138,7 @@ const DataManager = {
             }
             const { data, error } = await query;
             if (error) throw error;
-            return data;
+            return data.map(p => this.sanitizeItem(p));
         }
     },
 
@@ -163,7 +209,7 @@ const DataManager = {
             if (filters.categoria) productos = productos.filter(p => p.categoria === filters.categoria);
             if (filters.activo !== undefined) productos = productos.filter(p => p.activo === filters.activo);
             if (filters.visible_tienda !== undefined) productos = productos.filter(p => p.visible_tienda === filters.visible_tienda);
-            return productos;
+            return productos.map(p => this.sanitizeItem(p));
         } else {
             let query = this.supabase.from('dcava_productos').select('*, dcava_productores(nombre)');
             if (filters.categoria) query = query.eq('categoria', filters.categoria);
@@ -171,7 +217,7 @@ const DataManager = {
             if (filters.visible_tienda !== undefined) query = query.eq('visible_tienda', filters.visible_tienda);
             const { data, error } = await query;
             if (error) throw error;
-            return data.map(p => ({ ...p, productor_nombre: p.dcava_productores?.nombre || 'Desconocido' }));
+            return data.map(p => this.sanitizeItem({ ...p, productor_nombre: p.dcava_productores?.nombre || 'Desconocido' }));
         }
     },
 
