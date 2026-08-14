@@ -5,42 +5,46 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description"
-        content="CABRA & CURADO - Curadores de quesos artesanales de cabra y embutidos curados premium. No producimos, seleccionamos lo mejor de Chile.">
+        content="DCAVA - Curadores de quesos artesanales y embutidos curados premium. No producimos, seleccionamos lo mejor de Chile.">
     <meta name="keywords"
         content="quesos artesanales, quesos de cabra, embutidos, charcutería, productos gourmet, Chile">
 
     <!-- Open Graph -->
-    <meta property="og:title" content="CABRA & CURADO - Curadores de Tradición Artesanal">
+    <meta property="og:title" content="DCAVA - Curadores de Tradición Artesanal">
     <meta property="og:description"
         content="No producimos, seleccionamos lo mejor. Quesos de cabra y embutidos artesanales premium.">
     <meta property="og:type" content="website">
-    <meta property="og:url" content="https://cabraycurado.cl">
+    <meta property="og:url" content="https://dcava.cl">
 
-    <title>CABRA & CURADO - Curadores de Tradición Artesanal</title>
+    <title>DCAVA - Curadores de Tradición Artesanal</title>
 
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link
-        href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Outfit:wght@300;400;600;700&display=swap"
+        href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Outfit:wght@300;400;600;700&family=Pinyon+Script&display=swap"
         rel="stylesheet">
 
-    <link rel="stylesheet" href="styles.css">
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <link rel="stylesheet" href="styles.css?v=20260813_v11">
 </head>
 
 <body>
     <!-- Header -->
-    <!-- Header -->
     <header class="header" id="header">
         <div class="header-container">
             <a href="#" class="logo">
-                CABRA & <span>CURADO</span>
+                D<span>CAVA</span>
             </a>
 
             <nav class="nav">
-                <a href="#inicio" class="nav-link">Inicio</a>
-                <a href="#catalogo" class="nav-link">Catálogo</a>
-                <a href="#suscripciones" class="nav-link">Suscripciones</a>
+                <a href="#inicio" class="nav-link">Home</a>
+                <a href="#armador" class="nav-link">Arma tu Tabla</a>
+                <a href="#catalogo" class="nav-link">Colecciones</a>
+                <a href="#productores" class="nav-link">Nosotros</a>
+                <a href="#suscripciones" class="nav-link">Experiencias</a>
             </nav>
 
             <div class="header-actions">
@@ -56,15 +60,49 @@
 
     <!-- Hero Section -->
     <section class="hero" id="inicio">
-        <div class="hero-content">
-            <h2 class="hero-title">Curaduría <span>Gourmet</span><br>Directo a tu Mesa.</h2>
-            <p class="hero-subtitle">Olvídate del supermercado. Conectamos la maestría de artesanos chilenos con tu
-                paladar exigente. Quesos de autor y charcutería premium, seleccionados uno a uno.</p>
-            <div class="hero-cta">
-                <a href="#catalogo" class="btn btn-primary">Ver Catálogo</a>
-                <a href="#suscripciones" class="btn btn-secondary">Suscribirse</a>
+        <div class="hero-wrapper">
+            <!-- Lado Izquierdo: Contenido -->
+            <div class="hero-content">
+                <h2 class="hero-title">DCAVA<br><span class="hero-subtitle-inner">Selección Curada</span></h2>
+                <p class="hero-lead">Quesos & Charcutería Premium<br><span class="hero-cursive">Chile</span></p>
+                <div class="hero-divider">
+                    <span class="line"></span>
+                    <span class="text">Curado a la perfección</span>
+                    <span class="line"></span>
+                </div>
+                <div class="hero-cta">
+                    <a href="#catalogo" class="btn btn-primary">Ver Colección</a>
+                    <a href="#armador" class="btn btn-secondary">Armar mi tabla</a>
+                </div>
+
+                <!-- Features bar -->
+                <div class="hero-features">
+                    <div class="feature-item">
+                        <i class="fa-solid fa-medal"></i>
+                        <span>Origen Europeo</span>
+                    </div>
+                    <div class="feature-divider"></div>
+                    <div class="feature-item">
+                        <i class="fa-solid fa-wheat-awn"></i>
+                        <span>Productos Artesanales</span>
+                    </div>
+                    <div class="feature-divider"></div>
+                    <div class="feature-item">
+                        <i class="fa-solid fa-truck-fast"></i>
+                        <span>Entrega Nacional</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Lado Derecho: Imagen Tabla Gourmet -->
+            <div class="hero-image-side">
+                <div class="hero-img-card">
+                    <img src="hero_charcuterie_board.png" alt="Tabla Gourmet de Quesos y Charcutería DCAVA">
+                </div>
             </div>
         </div>
+        <!-- Torn paper bottom edge -->
+        <div class="hero-bottom-edge"></div>
     </section>
 
     <!-- Productores Destacados -->
@@ -81,39 +119,133 @@
         </div>
     </section>
 
+    <!-- Armador de Tabla Interactivo -->
+    <section class="armador-section" id="armador">
+        <div class="container">
+            <div class="section-header text-center">
+                <span class="builder-badge">FLUJO NUEVO</span>
+                <h2 class="section-title">Arma tu Propia Tabla</h2>
+                <p class="section-subtitle">Elige entre 3 y 6 productos y calculamos tu tabla al instante, sin esperar a pagar para ver el total.</p>
+            </div>
+
+            <div class="builder-layout">
+                <!-- Columna Izquierda: Selector de Productos (Pre-renderizado para carga inmediata) -->
+                <div class="builder-catalog" id="builderCatalog">
+                    <button type="button" class="builder-item-btn" data-id="101">
+                        <span class="builder-item-category">QUESO</span>
+                        <div class="builder-item-header">
+                            <span class="builder-item-name">Queso de Cabra Curado</span>
+                        </div>
+                        <span class="builder-item-price">$8.990</span>
+                    </button>
+
+                    <button type="button" class="builder-item-btn" data-id="102">
+                        <span class="builder-item-category">CHARCUTERÍA</span>
+                        <div class="builder-item-header">
+                            <span class="builder-item-name">Chorizo Artesanal Ahumado</span>
+                        </div>
+                        <span class="builder-item-price">$6.490</span>
+                    </button>
+
+                    <button type="button" class="builder-item-btn" data-id="103">
+                        <span class="builder-item-category">QUESO</span>
+                        <div class="builder-item-header">
+                            <span class="builder-item-name">Queso Azul Gran Reserva</span>
+                        </div>
+                        <span class="builder-item-price">$11.990</span>
+                    </button>
+
+                    <button type="button" class="builder-item-btn" data-id="104">
+                        <span class="builder-item-category">CHARCUTERÍA</span>
+                        <div class="builder-item-header">
+                            <span class="builder-item-name">Jamón Serrano Reserva</span>
+                        </div>
+                        <span class="builder-item-price">$14.990</span>
+                    </button>
+
+                    <button type="button" class="builder-item-btn" data-id="105">
+                        <span class="builder-item-category">QUESO</span>
+                        <div class="builder-item-header">
+                            <span class="builder-item-name">Queso Brie Trufado</span>
+                        </div>
+                        <span class="builder-item-price">$9.990</span>
+                    </button>
+
+                    <button type="button" class="builder-item-btn" data-id="106">
+                        <span class="builder-item-category">CHARCUTERÍA</span>
+                        <div class="builder-item-header">
+                            <span class="builder-item-name">Salami Fino Especiado</span>
+                        </div>
+                        <span class="builder-item-price">$7.490</span>
+                    </button>
+                </div>
+
+                <!-- Columna Derecha: Resumen en Vivo -->
+                <div class="builder-summary-card">
+                    <h3 class="builder-summary-title">Tu tabla</h3>
+                    
+                    <ul class="builder-items-list" id="builderItemsList">
+                        <li class="builder-empty-msg">Selecciona al menos 3 productos para armar tu tabla.</li>
+                    </ul>
+
+                    <div class="builder-total-row" id="builderTotalRow" style="display: none;">
+                        <span>Total</span>
+                        <span class="builder-total-price" id="builderTotalPrice">$0</span>
+                    </div>
+
+                    <!-- Sugerencia de Envío Gratis -->
+                    <div class="builder-shipping-notice" id="builderShippingNotice" style="display: none;"></div>
+
+                    <button class="btn btn-primary btn-block" id="builderAddToCartBtn" disabled style="display: none;">
+                        ELIGE 3 MÁS
+                    </button>
+
+                    <p class="builder-helper-text" id="builderHelperText" style="display: none;">
+                        Selecciona al menos 3 productos para armar tu tabla.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </section>
+
     <!-- Suscripciones -->
     <section class="suscripciones" id="suscripciones">
         <div class="container">
             <div class="section-header">
-                <h2 class="section-title">Club de Sabores</h2>
-                <p class="section-subtitle">Recibe una experiencia gastronómica nueva cada mes.</p>
+                <h2 class="section-title">Nuestras <span class="cursive-accent">Colecciones</span></h2>
             </div>
 
-            <div class="packs-grid">
+            <div class="packs-grid packs-horizontal">
                 <!-- Pack Descubrimiento -->
                 <div class="pack-card">
-                    <div class="pack-badge">Starter</div>
-                    <h3 class="pack-name">Descubrimiento</h3>
-                    <div class="pack-price">
-                        <span class="price">$29.990</span>
-                        <span class="period">/mes</span>
+                    <div class="pack-content-left">
+                        <div class="pack-badge">Starter</div>
+                        <h3 class="pack-name">Descubrimiento</h3>
+                        <div class="pack-price">
+                            <span class="price">$29.990</span>
+                            <span class="period">/mes</span>
+                        </div>
                     </div>
                     <ul class="pack-includes">
                         <li>1 Queso Artesanal (~200g)</li>
                         <li>1 Embutido Premium (~150g)</li>
                         <li>Sorpresa del Mes</li>
                     </ul>
-                    <button class="btn btn-secondary pack-btn" data-pack-id="1" data-pack-name="Pack Descubrimiento">Lo
-                        Quiero</button>
+                    <div class="pack-action">
+                        <button class="btn btn-secondary pack-btn" data-pack-id="1"
+                            data-pack-name="Pack Descubrimiento">Explorar &rarr;</button>
+                    </div>
                 </div>
 
                 <!-- Pack Experiencia Total (Gourmet) -->
                 <div class="pack-card pack-featured">
-                    <div class="pack-badge">Best Seller</div>
-                    <h3 class="pack-name">Experiencia Total</h3>
-                    <div class="pack-price">
-                        <span class="price">$49.990</span>
-                        <span class="period">/mes</span>
+                    <div class="pack-content-left">
+                        <div class="pack-badge">Best Seller</div>
+                        <h3 class="pack-name">Experiencia Total</h3>
+                        <div class="pack-price">
+                            <span class="price">$49.990</span>
+                            <span class="period">/mes</span>
+                        </div>
                     </div>
                     <ul class="pack-includes">
                         <li>2 Quesos de Autor (~400g)</li>
@@ -121,17 +253,21 @@
                         <li>Maridaje Exclusivo</li>
                         <li>Recetas de Chef</li>
                     </ul>
-                    <button class="btn btn-primary pack-btn" data-pack-id="2"
-                        data-pack-name="Pack Experiencia Total">Suscribirse Ahora</button>
+                    <div class="pack-action">
+                        <button class="btn btn-primary pack-btn" data-pack-id="2"
+                            data-pack-name="Pack Experiencia Total">Explorar &rarr;</button>
+                    </div>
                 </div>
 
                 <!-- Pack Coleccionista -->
                 <div class="pack-card">
-                    <div class="pack-badge">VIP</div>
-                    <h3 class="pack-name">Coleccionista</h3>
-                    <div class="pack-price">
-                        <span class="price">$79.990</span>
-                        <span class="period">/mes</span>
+                    <div class="pack-content-left">
+                        <div class="pack-badge">VIP</div>
+                        <h3 class="pack-name">Coleccionista</h3>
+                        <div class="pack-price">
+                            <span class="price">$79.990</span>
+                            <span class="period">/mes</span>
+                        </div>
                     </div>
                     <ul class="pack-includes">
                         <li>3 Quesos Gran Reserva (~500g)</li>
@@ -139,8 +275,10 @@
                         <li>Edición Limitada</li>
                         <li>Acceso Eventos VIP</li>
                     </ul>
-                    <button class="btn btn-secondary pack-btn" data-pack-id="3"
-                        data-pack-name="Pack Coleccionista">Únete al Club</button>
+                    <div class="pack-action">
+                        <button class="btn btn-secondary pack-btn" data-pack-id="3"
+                            data-pack-name="Pack Coleccionista">Ver Más &rarr;</button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -155,7 +293,7 @@
             </div>
 
             <!-- Filtros -->
-            <div class="filtros">
+            <div class="filtros" id="filtrosContainer">
                 <button class="filtro-btn active" data-filter="todos">Todo</button>
                 <button class="filtro-btn" data-filter="queso">Quesos</button>
                 <button class="filtro-btn" data-filter="embutido">Charcutería</button>
@@ -176,7 +314,7 @@
                 <div class="manifesto-header" data-reveal="up">
                     <span class="section-tag">Nuestra Esencia</span>
                     <h2 class="section-title">Manifiesto del <span>Sabor</span></h2>
-                    <p class="manifesto-lead">En <strong>CABRA & CURADO</strong>, la comida no es solo sustento; es el
+                    <p class="manifesto-lead">En <strong>DCAVA</strong>, la comida no es solo sustento; es el
                         eco de una tradición que merece ser preservada.</p>
                 </div>
 
@@ -251,7 +389,7 @@
                             </div>
                             <div class="info-text">
                                 <span>Escríbenos</span>
-                                <a href="mailto:hola@cabraycurado.cl">hola@cabraycurado.cl</a>
+                                <a href="mailto:hola@dcava.cl" id="contactEmail">hola@dcava.cl</a>
                             </div>
                         </div>
 
@@ -267,7 +405,7 @@
                             </div>
                             <div class="info-text">
                                 <span>WhatsApp Directo</span>
-                                <a href="https://wa.me/56912345678" target="_blank">+569 1234 5678</a>
+                                <a href="#" id="contactWhatsapp">Cargando...</a>
                             </div>
                         </div>
 
@@ -343,7 +481,7 @@
             <div class="footer-top">
                 <div class="footer-brand">
                     <a href="#" class="logo">
-                        CABRA & <span>CURADO</span>
+                        D<span>CAVA</span>
                     </a>
                     <p class="footer-desc">Curadores de tradición artesanal. Seleccionamos lo excelso de la maestría
                         chilena para llevar experiencias gourmet únicas a tu mesa.</p>
@@ -441,7 +579,7 @@
             </div>
 
             <div class="footer-bottom">
-                <p>&copy; 2026 CABRA & CURADO. Todos los derechos reservados. Diseñado con pasión.</p>
+                <p>&copy; 2026 DCAVA. Todos los derechos reservados. Diseñado con pasión.</p>
                 <div class="footer-bottom-links">
                     <span>Hecho en Chile 🇨🇱</span>
                 </div>
@@ -594,11 +732,15 @@
             </div>
         </div>
     </div>
+    <!-- Botón Flotante WhatsApp -->
+    <a href="https://wa.me/56912345678?text=Hola%20DCAVA,%20deseo%20consultar%20sobre%20sus%20quesos%20y%20charcuter%C3%ADa" target="_blank" rel="noopener noreferrer" class="whatsapp-float-btn" title="Contactar por WhatsApp">
+        <i class="fa-brands fa-whatsapp"></i>
+    </a>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="config.js"></script>
-    <script src="data-manager_v2.js?v=2.1.0"></script>
-    <script src="app.js"></script>
+    <script src="data-manager_v2.js?v=2.2.0"></script>
+    <script src="app.js?v=20260813_v11"></script>
 </body>
 
 </html>

@@ -1,8 +1,9 @@
 node_modules/
+api/node_modules/
 .env
+.env.*
+!.env.example
 config.js
 *.log
 dist/
 .DS_Store
-Dockerfile.dev
-docker-compose.dev.yml

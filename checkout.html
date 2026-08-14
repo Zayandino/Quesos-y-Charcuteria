@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Finalizar Compra - CABRA & CURADO</title>
+    <title>Finalizar Compra - DCAVA</title>
 
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -204,7 +204,7 @@
     <header class="header">
         <div class="header-container">
             <a href="index.html" class="logo">
-                CABRA & <span>CURADO</span>
+                D<span>CAVA</span>
             </a>
             <a href="index.html" class="nav-link">← Volver al Catálogo</a>
         </div>
@@ -328,15 +328,17 @@
 
     <!-- Scripts -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="data-manager.js"></script>
+    <script src="config.js"></script>
+    <script src="data-manager_v2.js"></script>
     <script>
         // Lógica de Checkout
         let cart = [];
         let shippingCost = 0;
 
-        document.addEventListener('DOMContentLoaded', () => {
-            loadCart();
+        document.addEventListener('DOMContentLoaded', async () => {
+            await loadCart();
             renderOrderSummary();
+            loadUserData();
 
             // Event listener para cambio de comuna (calculo de envío)
             document.getElementById('comuna').addEventListener('change', calculateShipping);
@@ -345,8 +347,44 @@
             document.getElementById('placeOrderBtn').addEventListener('click', handleCheckout);
         });
 
-        function loadCart() {
-            const savedCart = localStorage.getItem('cabra_curado_cart');
+        async function loadUserData() {
+            const userEmail = sessionStorage.getItem('user_email');
+            if (userEmail) {
+                document.getElementById('email').value = userEmail;
+                document.getElementById('email').readOnly = true; // Opcional: bloquear edición si se prefiere
+
+                // Intentar obtener datos del cliente si ya existe
+                try {
+                    // Inicializar si es necesario (aunque ya debería estar por el script include)
+                    if (DataManager.mode === 'supabase' && !DataManager.supabase) DataManager.initSupabase();
+
+                    const cliente = await DataManager.getOrCreateCliente(userEmail, 'Usuario Temporal');
+
+                    if (cliente) {
+                        // Pre-llenar nombre si es posible (a veces nombre viene junto)
+                        // Si el nombre en DB es distinto a "Usuario Temporal", lo usamos
+                        if (cliente.nombre && cliente.nombre !== 'Usuario Temporal') {
+                            const parts = cliente.nombre.split(' ');
+                            if (parts.length > 0) document.getElementById('firstName').value = parts[0];
+                            if (parts.length > 1) document.getElementById('lastName').value = parts.slice(1).join(' ');
+                        } else {
+                            // Fallback al storage
+                            const savedName = sessionStorage.getItem('user_name');
+                            if (savedName) {
+                                const parts = savedName.split(' ');
+                                if (parts.length > 0) document.getElementById('firstName').value = parts[0];
+                                if (parts.length > 1) document.getElementById('lastName').value = parts.slice(1).join(' ');
+                            }
+                        }
+                    }
+                } catch (e) {
+                    console.log('Usuario invitado o error cargando datos cliente:', e);
+                }
+            }
+        }
+
+        async function loadCart() {
+            const savedCart = localStorage.getItem('dcava_cart');
             if (savedCart) {
                 cart = JSON.parse(savedCart);
             }
@@ -354,7 +392,51 @@
             if (cart.length === 0) {
                 alert('El carrito está vacío');
                 window.location.href = 'index.html';
+                return;
             }
+
+            // Validar stock de cada item en base de datos en tiempo real
+            try {
+                const productos = await DataManager.getProductos();
+                let cartUpdated = false;
+                let alertMsg = [];
+
+                for (let i = cart.length - 1; i >= 0; i--) {
+                    const item = cart[i];
+                    const prod = productos.find(p => p.id === item.id);
+
+                    if (!prod) {
+                        alertMsg.push(`❌ El producto "${item.nombre}" ya no está disponible en catálogo y ha sido removido.`);
+                        cart.splice(i, 1);
+                        cartUpdated = true;
+                    } else if (prod.stock <= 0) {
+                        alertMsg.push(`❌ El producto "${item.nombre}" se ha agotado y ha sido removido.`);
+                        cart.splice(i, 1);
+                        cartUpdated = true;
+                    } else if (item.quantity > prod.stock) {
+                        alertMsg.push(`⚠️ El stock disponible de "${item.nombre}" es de ${prod.stock} unidades. Se ajustó tu cantidad.`);
+                        item.quantity = prod.stock;
+                        item.stock = prod.stock;
+                        cartUpdated = true;
+                    } else {
+                        // Sincronizar el stock máximo por si cambió
+                        item.stock = prod.stock;
+                    }
+                }
+
+                if (cartUpdated) {
+                    localStorage.setItem('dcava_cart', JSON.stringify(cart));
+                    if (alertMsg.length > 0) alert(alertMsg.join('\n'));
+                    if (cart.length === 0) {
+                        window.location.href = 'index.html';
+                        return;
+                    }
+                }
+            } catch (err) {
+                console.error('Error al validar stock en checkout:', err);
+            }
+
+            calculateShipping();
         }
 
         function calculateShipping(e) {
@@ -434,6 +516,34 @@
             placeOrderBtn.disabled = true;
             placeOrderBtn.textContent = 'Procesando...';
 
+            // 0. Validación final de stock antes de registrar la orden en BD
+            try {
+                const productos = await DataManager.getProductos();
+                let stockInvalido = false;
+                let errorMsg = [];
+
+                for (const item of cart) {
+                    const prod = productos.find(p => p.id === item.id);
+                    if (!prod || prod.stock < item.quantity) {
+                        stockInvalido = true;
+                        const disponible = prod ? prod.stock : 0;
+                        errorMsg.push(`❌ "${item.nombre}" ya no cuenta con suficiente stock (Solicitado: ${item.quantity}, Disponible: ${disponible}).`);
+                    }
+                }
+
+                if (stockInvalido) {
+                    alert(`Lo sentimos, el stock de algunos productos cambió mientras realizabas la compra:\n\n${errorMsg.join('\n')}\n\nEl checkout ha sido cancelado para que revises tu compra.`);
+                    // Forzar recarga y ajuste de stock en el resumen
+                    await loadCart();
+                    renderOrderSummary();
+                    placeOrderBtn.disabled = false;
+                    placeOrderBtn.textContent = 'Confirmar Pedido';
+                    return;
+                }
+            } catch (err) {
+                console.error('Error al validar stock en pre-compra:', err);
+            }
+
             const paymentMethod = document.querySelector('input[name="payment"]:checked').value;
             const customer = {
                 nombre: document.getElementById('firstName').value + ' ' + document.getElementById('lastName').value,
@@ -445,12 +555,12 @@
             };
 
             try {
-                // 1. Guardar el pedido en Supabase/Local
+                // 1. Guardar el pedido en Supabase/Local (donde se descuenta automáticamente el stock)
                 const order = await DataManager.createPedido(customer, cart);
 
                 if (paymentMethod === 'whatsapp') {
                     // Generar mensaje de WhatsApp
-                    let message = `Hola *CABRA & CURADO*, quiero confirmar mi pedido #${order.id || ''}:\n\n`;
+                    let message = `Hola *DCAVA*, quiero confirmar mi pedido #${order.id || ''}:\n\n`;
                     cart.forEach(item => {
                         message += `▪️ ${item.quantity} x ${item.nombre} ($${(item.precio * item.quantity).toLocaleString('es-CL')})\n`;
                     });
@@ -466,23 +576,37 @@
 
                     message += `\n\nQuedo atento a los datos de transferencia. ¡Gracias!`;
 
-                    const whatsappUrl = `https://wa.me/56912345678?text=${encodeURIComponent(message)}`;
+                    const dbWhatsapp = await DataManager.getConfig('whatsapp');
+                    const cleanWhatsapp = (dbWhatsapp || '56912345678').replace(/\+/g, '').replace(/\s/g, '');
+                    const whatsappUrl = `https://wa.me/${cleanWhatsapp}?text=${encodeURIComponent(message)}`;
                     window.open(whatsappUrl, '_blank');
 
                     alert('¡Pedido registrado! Te hemos redirigido a WhatsApp para coordinar el pago.');
-                    localStorage.removeItem('cabra_curado_cart');
+                    localStorage.removeItem('dcava_cart');
                     window.location.href = 'index.html';
 
                 } else if (paymentMethod === 'mercadopago') {
-                    // Aquí inicia la integración de MP
-                    alert('🚧 Conectando con Mercado Pago...\nPedido #' + (order.id || 'N/A'));
+                    // Integración segura de Mercado Pago vía Backend API
+                    placeOrderBtn.textContent = 'Generando Pago Seguro...';
 
-                    // Simulación de redirección exitosa
-                    setTimeout(() => {
-                        alert('¡Pago procesado exitosamente! Tu pedido ya está en camino.');
-                        localStorage.removeItem('cabra_curado_cart');
-                        window.location.href = 'index.html';
-                    }, 2000);
+                    const apiResponse = await fetch('/api/create-preference', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            items: cart.map(i => ({ id: i.id, quantity: i.quantity })),
+                            customer: customer
+                        })
+                    });
+
+                    const data = await apiResponse.json();
+
+                    if (data.success && (data.init_point || data.sandbox_init_point)) {
+                        localStorage.removeItem('dcava_cart');
+                        const redirectUrl = data.init_point || data.sandbox_init_point;
+                        window.location.href = redirectUrl;
+                    } else {
+                        throw new Error(data.error || (data.details ? data.details.join('\n') : 'No se pudo generar la preferencia de pago.'));
+                    }
                 }
             } catch (error) {
                 console.error('Error al procesar el pedido:', error);

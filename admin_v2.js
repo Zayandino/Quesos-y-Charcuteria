@@ -1,5 +1,5 @@
 /* ========================================
-   CABRA & CURADO - ADMIN PANEL LOGIC
+   DCAVA - ADMIN PANEL LOGIC
    ======================================== */
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -7,21 +7,29 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 async function checkAuth() {
+    // Siempre verificar sesión real en Supabase
+    if (!DataManager.supabase) {
+        showLoginForm();
+        return;
+    }
+
     const user = await DataManager.getCurrentUser();
     if (user) {
-        // Verificar si es admin en la tabla usuarios_sistema
-        const { data: adminUser, error } = await DataManager.supabase
-            .from('usuarios_sistema')
-            .select('rol')
-            .eq('email', user.email)
-            .eq('activo', true)
-            .single();
+        try {
+            const { data: adminUser, error } = await DataManager.supabase
+                .from('dcava_usuarios_sistema')
+                .select('rol')
+                .eq('email', user.email)
+                .single();
 
-        if (adminUser && adminUser.rol === 'admin') {
-            showAdminPanel();
-        } else {
-            alert('No tienes permisos de administrador.');
-            await DataManager.signOut();
+            if (adminUser && (adminUser.rol === 'admin' || adminUser.rol === 'staff')) {
+                showAdminPanel();
+            } else {
+                await DataManager.signOut();
+                showLoginForm();
+            }
+        } catch (e) {
+            console.error('Error verificando admin:', e);
             showLoginForm();
         }
     } else {
@@ -47,6 +55,7 @@ window.login = async function (event) {
     const email = document.getElementById('adminEmail').value;
     const password = document.getElementById('adminPass').value;
     const errorMsg = document.getElementById('loginError');
+    if (errorMsg) errorMsg.style.display = 'none';
 
     try {
         const { data, error } = await DataManager.supabase.auth.signInWithPassword({
@@ -57,73 +66,57 @@ window.login = async function (event) {
         if (error) throw error;
 
         if (data.user) {
-            // Verificar rol
-            const { data: adminUser } = await DataManager.supabase
-                .from('usuarios_sistema')
+            // Verificar que el usuario tiene rol admin/staff en la tabla del sistema
+            const { data: adminUser, error: roleError } = await DataManager.supabase
+                .from('dcava_usuarios_sistema')
                 .select('rol')
                 .eq('email', data.user.email)
                 .single();
 
-            if (adminUser && adminUser.rol === 'admin') {
+            if (!roleError && adminUser && (adminUser.rol === 'admin' || adminUser.rol === 'staff')) {
                 showAdminPanel();
             } else {
-                throw new Error('No autorizado');
+                await DataManager.supabase.auth.signOut();
+                throw new Error('Usuario no tiene permisos de administración');
             }
         }
     } catch (error) {
         console.error('Login error:', error);
-        if (errorMsg) errorMsg.style.display = 'block';
+        if (errorMsg) {
+            errorMsg.textContent = error.message || 'Acceso denegado. Credenciales incorrectas o sin permisos.';
+            errorMsg.style.display = 'block';
+        }
     }
 }
 
 window.logout = async function () {
-    await DataManager.signOut();
+    try {
+        await DataManager.signOut();
+    } catch (e) {
+        console.error('Error in logout:', e);
+    }
     showLoginForm();
 }
 
 // ===== ADMIN INITIALIZATION =====
 async function initializeAdmin() {
-    await Promise.all([
-        loadDashboard(),
-        loadProducts(),
-        loadSubscribers(),
-        loadOrders(),
-        loadProducers()
-    ]);
-}
+    const sections = [
+        { fn: loadDashboard, name: 'Dashboard' },
+        { fn: loadProducts, name: 'Productos' },
+        { fn: loadSubscribers, name: 'Suscriptores' },
+        { fn: loadOrders, name: 'Pedidos' },
+        { fn: loadProducers, name: 'Productores' }
+    ];
 
-async function initializeSampleSubscribers() {
-    const subscribers = JSON.parse(localStorage.getItem('subscribers') || '[]');
-    if (subscribers.length === 0) {
-        const samples = [
-            { id: 1, nombre: 'Javiera Paz', email: 'javitapaz@email.com', plan: 'Experiencia Total', fecha_inicio: '2026-01-15', estado: 'activo' },
-            { id: 2, nombre: 'Carlos Ruiz', email: 'c.ruiz@email.com', plan: 'Coleccionista', fecha_inicio: '2026-02-01', estado: 'activo' },
-            { id: 3, nombre: 'Marta Solis', email: 'marta.solis@email.com', plan: 'Descubrimiento', fecha_inicio: '2026-02-10', estado: 'pendiente' }
-        ];
-        localStorage.setItem('subscribers', JSON.stringify(samples));
+    for (const section of sections) {
+        try {
+            await section.fn();
+        } catch (e) {
+            console.warn(`⚠️ Error al cargar ${section.name}:`, e.message || e);
+        }
     }
 }
 
-async function initializeSampleOrders() {
-    const orders = JSON.parse(localStorage.getItem('orders') || '[]');
-    if (orders.length === 0) {
-        const samples = [
-            {
-                id: 1001,
-                fecha: new Date().toISOString(),
-                cliente: 'Andrés Bello',
-                productos: 'Queso Cabra Maduro x2, Longaniza Parrillera x1',
-                items: [
-                    { id: 2, quantity: 2 }, // Queso Maduro
-                    { id: 11, quantity: 1 } // Longaniza
-                ],
-                total: 14990,
-                estado: 'Completado'
-            }
-        ];
-        localStorage.setItem('orders', JSON.stringify(samples));
-    }
-}
 
 function showSection(id) {
     document.querySelectorAll('.content-section').forEach(s => s.style.display = 'none');
@@ -157,10 +150,50 @@ async function loadDashboard() {
     const pendingOrders = (orders || []).filter(o => o.estado === 'pendiente').length;
     const activeSubs = (subscribers || []).filter(s => s.estado === 'activa' || s.estado === 'activo').length;
 
+    // KPI Financieros
+    const productMap = {};
+    (products || []).forEach(p => {
+        productMap[p.id] = p;
+    });
+
+    let totalVentasBrutas = 0;
+    let totalEgresosNetos = 0;
+
+    (orders || []).forEach(o => {
+        totalVentasBrutas += o.total || 0;
+
+        if (o.items && Array.isArray(o.items)) {
+            o.items.forEach(item => {
+                const prod = productMap[item.id];
+                if (prod) {
+                    const costoUnitario = prod.costo_proveedor || 0;
+                    totalEgresosNetos += item.quantity * costoUnitario;
+                }
+            });
+        }
+    });
+
+    const netoIngresos = Math.round(totalVentasBrutas / 1.19);
+    const ivaDebito = totalVentasBrutas - netoIngresos;
+    
+    const netoEgresos = totalEgresosNetos;
+    const ivaCredito = Math.round(netoEgresos * 0.19);
+    
+    const margenNeto = netoIngresos - netoEgresos;
+    const ivaNeto = ivaDebito - ivaCredito;
+
+    // Asignación al DOM
     document.getElementById('totalProducts').textContent = products.length;
     document.getElementById('todaySales').textContent = `$${todaySales.toLocaleString('es-CL')}`;
     document.getElementById('pendingOrders').textContent = pendingOrders;
     document.getElementById('totalSubscribers').textContent = activeSubs;
+
+    document.getElementById('netoIngresos').textContent = `$${netoIngresos.toLocaleString('es-CL')}`;
+    document.getElementById('netoEgresos').textContent = `$${netoEgresos.toLocaleString('es-CL')}`;
+    document.getElementById('margenNeto').textContent = `$${margenNeto.toLocaleString('es-CL')}`;
+    document.getElementById('ivaDebito').textContent = `$${ivaDebito.toLocaleString('es-CL')}`;
+    document.getElementById('ivaCredito').textContent = `$${ivaCredito.toLocaleString('es-CL')}`;
+    document.getElementById('ivaNeto').textContent = `$${ivaNeto.toLocaleString('es-CL')}`;
 }
 
 // ===== PRODUCTOS =====
@@ -183,9 +216,11 @@ async function loadProducts() {
 
         return `
         <tr>
-            <td style="display: flex; align-items: center; gap: 1rem;">
-                ${imgDisplay}
-                <span style="font-weight: 600;">${p.nombre}</span>
+            <td>
+                <div style="display: flex; align-items: center; gap: 1rem;">
+                    ${imgDisplay}
+                    <span style="font-weight: 600;">${p.nombre}</span>
+                </div>
             </td>
             <td><span class="status-badge" style="background:var(--bg-main); color:var(--text-muted)">${p.categoria}</span></td>
             <td>
@@ -206,20 +241,45 @@ async function loadProducts() {
 const modal = document.getElementById('productModal');
 const form = document.getElementById('productForm');
 
+// Cierra TODOS los modales antes de abrir uno nuevo (evita apilamiento)
+function closeAllModals() {
+    document.querySelectorAll('.modal').forEach(m => m.classList.remove('active'));
+    document.body.classList.remove('no-scroll');
+}
+
 window.openProductModal = async function () {
+    closeAllModals(); // Asegurar que no haya otro modal abierto
+
     form.reset();
     document.getElementById('prodId').value = '';
     document.getElementById('prodImage').value = '';
     if (document.getElementById('prodImageFile')) document.getElementById('prodImageFile').value = '';
-    document.getElementById('imagePreview').innerHTML = '<span style="font-size: 0.8rem;">Sin imagen</span>';
-    document.getElementById('uploadStatus').textContent = '* Selecciona una foto para subirla automáticamente.';
-    document.getElementById('uploadStatus').style.color = '#666';
+
+    // Limpiar preview
+    const preview = document.getElementById('imagePreview');
+    preview.style.backgroundImage = '';
+    Array.from(preview.children).forEach(el => el.style.display = '');
+
+    document.getElementById('uploadStatus').textContent = '* Esperando archivo...';
+    document.getElementById('uploadStatus').style.color = 'var(--text-muted)';
 
     // Cargar select de productores
     const productores = await DataManager.getProductores();
     const select = document.getElementById('prodProducer');
     select.innerHTML = '<option value="">Selecciona un productor...</option>' +
         productores.map(p => `<option value="${p.id}">${p.nombre}</option>`).join('');
+
+    // Cargar select de categorías dinámicamente
+    try {
+        const categorias = await DataManager.getCategorias();
+        const catSelect = document.getElementById('prodCategory');
+        if (catSelect) {
+            catSelect.innerHTML = '<option value="">Selecciona una categoría...</option>' +
+                categorias.map(c => `<option value="${c.slug}">${c.icono} ${c.nombre}</option>`).join('');
+        }
+    } catch (err) {
+        console.error('Error al cargar categorías en select:', err);
+    }
 
     modal.classList.add('active');
     document.body.classList.add('no-scroll');
@@ -234,11 +294,22 @@ window.updatePreview = function () {
     const url = document.getElementById('prodImage').value;
     const preview = document.getElementById('imagePreview');
     if (url) {
-        preview.innerHTML = `<img src="${url}" style="width: 100%; height: 100%; object-fit: cover;">`;
+        // Usar background-image para una previsualización robusta sin problemas de overflow
+        preview.style.backgroundImage = `url('${url}')`;
+        preview.style.backgroundSize = 'cover';
+        preview.style.backgroundPosition = 'center';
+        preview.style.backgroundRepeat = 'no-repeat';
+        // Ocultar el contenido de texto/icono interno
+        Array.from(preview.children).forEach(el => el.style.display = 'none');
     } else {
-        preview.innerHTML = '<span style="font-size: 0.8rem;">Sin imagen</span>';
+        preview.style.backgroundImage = '';
+        preview.style.backgroundSize = '';
+        preview.style.backgroundPosition = '';
+        // Mostrar de nuevo el contenido de texto/icono
+        Array.from(preview.children).forEach(el => el.style.display = '');
     }
 }
+
 
 window.handleImageUpload = async function (input) {
     const file = input.files[0];
@@ -262,7 +333,11 @@ window.handleImageUpload = async function (input) {
 }
 
 window.calculateIVA = function () {
-    const total = parseFloat(document.getElementById('prodPrice').value) || 0;
+    let total = parseFloat(document.getElementById('prodPrice').value) || 0;
+    if (total < 0) {
+        total = 0;
+        document.getElementById('prodPrice').value = 0;
+    }
     const neto = Math.round(total / 1.19);
     const iva = total - neto;
 
@@ -300,31 +375,37 @@ window.deleteProduct = async (id) => {
 form.addEventListener('submit', async (e) => {
     e.preventDefault();
     const id = document.getElementById('prodId').value;
-
     const producerId = document.getElementById('prodProducer').value;
+
+    const rawPrice = parseInt(document.getElementById('prodPrice').value) || 0;
+    const rawStock = parseInt(document.getElementById('prodStock').value) || 0;
 
     const data = {
         nombre: document.getElementById('prodName').value,
-        precio_venta: parseInt(document.getElementById('prodPrice').value),
-        stock: parseInt(document.getElementById('prodStock').value),
+        precio_venta: Math.max(0, rawPrice),
+        stock: Math.max(0, rawStock),
         categoria: document.getElementById('prodCategory').value,
-        productor_id: producerId ? parseInt(producerId) : 1, // Default a 1 si no hay selección
+        productor_id: producerId ? parseInt(producerId) : null,
         descripcion: document.getElementById('prodDesc').value,
         imagen_url: document.getElementById('prodImage').value,
         activo: true,
         visible_tienda: true,
-        costo_proveedor: parseInt(document.getElementById('prodPrice').value) * 0.7
+        costo_proveedor: Math.max(0, Math.round(rawPrice * 0.7))
     };
 
-    if (id) {
-        await DataManager.updateProducto(parseInt(id), data);
-    } else {
-        await DataManager.createProducto(data);
+    try {
+        if (id) {
+            await DataManager.updateProducto(parseInt(id), data);
+        } else {
+            await DataManager.createProducto(data);
+        }
+        closeProductModal();
+        loadProducts();
+        loadDashboard();
+    } catch (err) {
+        console.error('Error saving product:', err);
+        alert('❌ Error al guardar producto.');
     }
-
-    closeProductModal();
-    loadProducts();
-    loadDashboard();
 });
 
 // ===== PEDIDOS =====
@@ -337,67 +418,68 @@ window.loadOrders = async function () {
         return;
     }
 
-    tbody.innerHTML = orders.map((order) => `
+    tbody.innerHTML = orders.map((order) => {
+        const orderStatusClass = order.estado === 'pagado' || order.estado === 'entregado' ? 'status-active' : 'status-inactive';
+        return `
         <tr>
             <td>#${order.id}</td>
             <td>${new Date(order.fecha).toLocaleDateString('es-CL')}</td>
             <td>${order.cliente}</td>
-            <td style="font-size: 0.85rem; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+            <td style="font-size: 0.85rem; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${order.productos}">
                 ${order.productos}
             </td>
             <td>$${order.total.toLocaleString('es-CL')}</td>
-            <td><span class="status-badge ${order.estado === 'pagado' ? 'status-active' : 'status-inactive'}">${order.estado}</span></td>
+            <td><span class="status-badge ${orderStatusClass}">${order.estado}</span></td>
             <td>
-                <button class="action-btn" onclick="viewOrderDetails(${order.id})">👁️</button>
+                <button class="action-btn" onclick="viewOrderDetails(${order.id})" title="Ver detalles">👁️</button>
+                ${order.estado === 'pendiente' ? `<button class="action-btn" onclick="processOrder(${order.id})" title="Marcar como Pagado">✓</button>` : ''}
             </td>
         </tr>
-    `).join('');
+    `}).join('');
 }
 
 window.processOrder = async function (orderId) {
-    const orders = JSON.parse(localStorage.getItem('orders') || '[]');
+    const orders = await DataManager.getPedidosFull();
     const order = orders.find(o => o.id === orderId);
 
     if (!order) return;
-    if (order.estado === 'Completado') {
-        alert('Este pedido ya fue procesado y el stock descontado.');
+    if (order.estado === 'pagado') {
+        alert('Este pedido ya fue procesado y pagado.');
         return;
     }
 
-    if (confirm(`¿Procesar pedido #${orderId}? Esto descontará los productos del stock.`)) {
-        // En un sistema real, esto se hace en el backend. 
-        // Aquí simulamos el descuento de stock.
-        if (order.items && order.items.length > 0) {
-            for (const item of order.items) {
-                const product = await DataManager.getProductoById(item.id);
-                if (product) {
-                    await DataManager.updateProducto(item.id, {
-                        stock: Math.max(0, product.stock - item.quantity)
-                    });
-                }
-            }
+    if (confirm(`¿Procesar pedido #${orderId}? Esto marcará el pedido como pagado.`)) {
+        try {
+            // Actualizar estado del pedido en Supabase (el stock ya se descontó automáticamente al comprar)
+            await DataManager.updatePedido(orderId, { estado: 'pagado', estado_pago: 'pagado' });
+
+            await initializeAdmin(); // Recargar todo
+            alert('✅ Pedido marcado como pagado correctamente.');
+        } catch (error) {
+            console.error('Error processing order:', error);
+            alert('❌ Error al procesar el pedido.');
         }
-
-        // Actualizar estado del pedido
-        order.estado = 'Completado';
-        localStorage.setItem('orders', JSON.stringify(orders));
-
-        await initializeAdmin(); // Recargar todo
-        alert('✅ Pedido procesado y stock actualizado correctamente.');
     }
 }
 
-window.viewOrderDetails = function (orderId) {
-    const orders = JSON.parse(localStorage.getItem('orders') || '[]');
-    const order = orders.find(o => o.id === orderId);
-    alert(`DETALLE PEDIDO #${orderId}\n\nCliente: ${order.cliente}\nProductos: ${order.productos}\nTotal: $${order.total.toLocaleString('es-CL')}\nEstado: ${order.estado}`);
+window.viewOrderDetails = async function (orderId) {
+    try {
+        const orders = await DataManager.getPedidosFull();
+        const order = orders.find(o => o.id === orderId);
+        if (order) {
+            alert(`DETALLE PEDIDO #${orderId}\n\nCliente: ${order.cliente}\nProductos: ${order.productos}\nTotal: $${order.total.toLocaleString('es-CL')}\nEstado: ${order.estado}`);
+        } else {
+            alert('Pedido no encontrado.');
+        }
+    } catch (e) {
+        console.error(e);
+    }
 }
 
 // ===== SUSCRIPTORES =====
 const subModal = document.getElementById('subscriberModal');
 const subForm = document.getElementById('subscriberForm');
 
-// ===== SUSCRIPTORES =====
 window.loadSubscribers = async function () {
     const tbody = document.getElementById('subscribersTableBody');
     const subscribers = await DataManager.getSubscribers();
@@ -411,18 +493,19 @@ window.loadSubscribers = async function () {
         <tr>
             <td>${s.nombre}</td>
             <td>${s.email}</td>
-            <td><span class="status-badge" style="background:#333">${s.plan}</span></td>
+            <td><span class="status-badge" style="background:#333; color:white;">${s.plan}</span></td>
             <td>${new Date(s.fecha_inicio).toLocaleDateString('es-CL')}</td>
             <td><span class="status-badge ${s.estado === 'activa' || s.estado === 'activo' ? 'status-active' : 'status-inactive'}">${s.estado}</span></td>
             <td>
                 <button class="action-btn" onclick="editSubscriber(${s.id})">✏️</button>
+                <button class="action-btn" onclick="deleteSubscriber(${s.id})">🗑️</button>
             </td>
         </tr>
     `).join('');
 }
 
 window.openSubscriberModal = function () {
-    subForm.reset();
+    if (subForm) subForm.reset();
     document.getElementById('subId').value = '';
     subModal.classList.add('active');
     document.body.classList.add('no-scroll');
@@ -433,58 +516,68 @@ window.closeSubscriberModal = function () {
     document.body.classList.remove('no-scroll');
 }
 
-window.editSubscriber = function (id) {
-    const subscribers = JSON.parse(localStorage.getItem('subscribers') || '[]');
-    const s = subscribers.find(x => x.id === id);
-    if (s) {
-        openSubscriberModal();
-        document.getElementById('subId').value = s.id;
-        document.getElementById('subName').value = s.nombre;
-        document.getElementById('subEmail').value = s.email;
-        document.getElementById('subPlan').value = s.plan;
-        document.getElementById('subStatus').value = s.estado;
+window.editSubscriber = async function (id) {
+    try {
+        const subscribers = await DataManager.getSubscribers();
+        const s = subscribers.find(x => x.id === id);
+        if (s) {
+            openSubscriberModal();
+            document.getElementById('subId').value = s.id;
+            document.getElementById('subName').value = s.nombre;
+            document.getElementById('subEmail').value = s.email;
+            document.getElementById('subPlan').value = s.plan;
+            document.getElementById('subStatus').value = s.estado;
+        }
+    } catch (e) {
+        console.error(e);
     }
 }
 
 if (subForm) {
-    subForm.addEventListener('submit', (e) => {
+    subForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         const id = document.getElementById('subId').value;
-        let subscribers = JSON.parse(localStorage.getItem('subscribers') || '[]');
+        const name = document.getElementById('subName').value;
+        const email = document.getElementById('subEmail').value;
+        const planName = document.getElementById('subPlan').value;
+        const statusVal = document.getElementById('subStatus').value;
 
-        const data = {
-            nombre: document.getElementById('subName').value,
-            email: document.getElementById('subEmail').value,
-            plan: document.getElementById('subPlan').value,
-            estado: document.getElementById('subStatus').value,
-            fecha_inicio: id ? subscribers.find(x => x.id == id).fecha_inicio : new Date().toISOString()
-        };
+        try {
+            if (id) {
+                await DataManager.updateSuscripcion(parseInt(id), { estado: statusVal });
+                alert('✅ Suscripción actualizada correctamente.');
+            } else {
+                let packId = 1;
+                if (planName.includes('Experiencia')) packId = 2;
+                if (planName.includes('Coleccionista')) packId = 3;
 
-        if (id) {
-            const index = subscribers.findIndex(x => x.id == id);
-            subscribers[index] = { ...data, id: parseInt(id) };
-        } else {
-            const newId = subscribers.length > 0 ? Math.max(...subscribers.map(x => x.id)) + 1 : 1;
-            subscribers.push({ ...data, id: newId });
+                const cliente = await DataManager.getOrCreateCliente(email, name);
+                await DataManager.createSuscripcion(cliente.id, packId);
+                alert('✅ Suscriptor creado correctamente.');
+            }
+
+            closeSubscriberModal();
+            await initializeAdmin();
+        } catch (error) {
+            console.error('Error guardando suscriptor:', error);
+            alert('❌ Error al guardar suscriptor.');
         }
-
-        localStorage.setItem('subscribers', JSON.stringify(subscribers));
-        closeSubscriberModal();
-        loadSubscribers();
-        loadDashboard();
-        alert('✅ Suscriptor guardado correctamente.');
     });
 }
 
-window.deleteSubscriber = function (id) {
+window.deleteSubscriber = async function (id) {
     if (confirm('¿Eliminar esta suscripción?')) {
-        let subscribers = JSON.parse(localStorage.getItem('subscribers') || '[]');
-        subscribers = subscribers.filter(s => s.id !== id);
-        localStorage.setItem('subscribers', JSON.stringify(subscribers));
-        loadSubscribers();
-        loadDashboard();
+        try {
+            await DataManager.deleteSuscripcion(id);
+            await initializeAdmin();
+            alert('✅ Suscripción eliminada.');
+        } catch (e) {
+            console.error(e);
+            alert('❌ Error al eliminar la suscripción.');
+        }
     }
 }
+
 // ===== CONFIGURACIÓN DEL SISTEMA =====
 window.loadSystemConfig = async function () {
     try {
@@ -524,7 +617,6 @@ window.saveSystemConfig = async function () {
             if (value !== undefined && value !== null) {
                 console.log(`💾 Guardando: ${key}...`);
                 await DataManager.setConfig(key, value);
-                // Pequeña pausa para evitar colisiones en la DB
                 await new Promise(resolve => setTimeout(resolve, 200));
             }
         }
@@ -615,12 +707,128 @@ window.editProducer = async function (id) {
     }
 }
 
-// Inyectar llamada a loadSystemConfig en showSection
+// Inyectar llamada a loadProducers en showSection
 const originalShowSection = window.showSection;
 window.showSection = function (id) {
     if (id === 'configuracion') {
-        loadSystemConfig();
         loadProducers();
     }
-    originalShowSection(id);
+    if (originalShowSection) originalShowSection(id);
+}
+
+// ===== CATEGORIAS CONTROLADORES (INTEGRADOS EN PRODUCTOS) =====
+window.openCategoriesManagementModal = async function () {
+    closeAllModals(); // Cerrar cualquier modal abierto antes
+
+    const catForm = document.getElementById('inlineCategoryForm');
+    if (catForm) catForm.reset();
+    const hiddenId = document.getElementById('inlineCatId');
+    if (hiddenId) hiddenId.value = '';
+
+    const submitBtn = document.getElementById('inlineCatSubmitBtn');
+    if (submitBtn) submitBtn.textContent = 'Guardar';
+
+    const catModal = document.getElementById('categoriesManagementModal');
+    if (catModal) {
+        catModal.classList.add('active');
+        document.body.classList.add('no-scroll');
+    } else {
+        console.error('Modal #categoriesManagementModal no encontrado en el DOM');
+        return;
+    }
+
+    await loadInlineCategories();
+}
+
+window.closeCategoriesManagementModal = function () {
+    document.getElementById('categoriesManagementModal').classList.remove('active');
+    document.body.classList.remove('no-scroll');
+}
+
+window.loadInlineCategories = async function () {
+    const tbody = document.getElementById('inlineCategoriesTableBody');
+    if (!tbody) return;
+    
+    try {
+        const categorias = await DataManager.getCategorias();
+        
+        if (!categorias || categorias.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; padding: 1.5rem; color: var(--text-muted);">No hay categorías registradas.</td></tr>';
+            return;
+        }
+        
+        tbody.innerHTML = categorias.map(c => `
+            <tr>
+                <td style="font-size: 1.3rem; text-align: center; width: 60px; padding: 0.6rem;">${c.icono}</td>
+                <td style="font-weight: 600; padding: 0.6rem;">${c.nombre}</td>
+                <td style="padding: 0.6rem;"><span class="status-badge" style="background:#333; color:white;">${c.slug}</span></td>
+                <td style="padding: 0.6rem; text-align: center;">
+                    <button type="button" class="action-btn" onclick="editInlineCategory(${c.id})" style="margin-right: 0.5rem; background: none; border: none; cursor: pointer;">✏️</button>
+                    <button type="button" class="action-btn" onclick="deleteInlineCategory(${c.id})" style="background: none; border: none; cursor: pointer;">🗑️</button>
+                </td>
+            </tr>
+        `).join('');
+    } catch (err) {
+        console.error('Error loading inline categories:', err);
+    }
+}
+
+window.saveInlineCategory = async function () {
+    const id = document.getElementById('inlineCatId').value;
+    const data = {
+        nombre: document.getElementById('inlineCatName').value,
+        slug: document.getElementById('inlineCatSlug').value.toLowerCase().trim(),
+        icono: document.getElementById('inlineCatIcon').value
+    };
+
+    try {
+        if (id) {
+            await DataManager.updateCategoria(parseInt(id), data);
+        } else {
+            await DataManager.createCategoria(data);
+        }
+        
+        // Reset form
+        const form = document.getElementById('inlineCategoryForm');
+        if (form) form.reset();
+        document.getElementById('inlineCatId').value = '';
+        document.getElementById('inlineCatSubmitBtn').textContent = 'Guardar';
+        
+        // Recargar listado en modal
+        await loadInlineCategories();
+        // Recargar dropdowns y productos
+        if (typeof loadProducts === 'function') await loadProducts();
+    } catch (err) {
+        console.error('Error saving inline category:', err);
+        alert('❌ Error al guardar la categoría. Asegúrate de que el slug o el nombre no estén repetidos.');
+    }
+}
+
+window.editInlineCategory = async function (id) {
+    try {
+        const categorias = await DataManager.getCategorias();
+        const c = categorias.find(x => x.id === id);
+        if (c) {
+            document.getElementById('inlineCatId').value = c.id;
+            document.getElementById('inlineCatName').value = c.nombre;
+            document.getElementById('inlineCatSlug').value = c.slug;
+            document.getElementById('inlineCatIcon').value = c.icono;
+            document.getElementById('inlineCatSubmitBtn').textContent = 'Actualizar';
+        }
+    } catch (err) {
+        console.error('Error editing inline category:', err);
+    }
+}
+
+window.deleteInlineCategory = async function (id) {
+    if (confirm('¿Seguro que deseas eliminar esta categoría? Esto afectará a los productos asociados.')) {
+        try {
+            await DataManager.deleteCategoria(id);
+            await loadInlineCategories();
+            if (typeof loadProducts === 'function') await loadProducts();
+        } catch (err) {
+            console.error('Error deleting inline category:', err);
+            alert('❌ Error al eliminar la categoría.');
+        }
+    }
 }

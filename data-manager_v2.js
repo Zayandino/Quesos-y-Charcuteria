@@ -1,5 +1,5 @@
 /* ========================================
-   CABRA & CURADO - DATA MANAGER
+   DCAVA - DATA MANAGER
    Capa de abstracción de datos
    Soporta: localStorage y Supabase
    ======================================== */
@@ -56,11 +56,17 @@ const DataManager = {
     },
 
     async signOut() {
-        if (this.mode === 'supabase') {
-            const { error } = await this.supabase.auth.signOut();
-            if (error) throw error;
+        if (this.mode === 'supabase' && this.supabase) {
+            try {
+                await this.supabase.auth.signOut();
+            } catch (err) {
+                console.warn('Supabase signOut error, force clearing local session:', err);
+                // Forzar limpieza local si la API falla
+                await this.supabase.auth.signOut({ scope: 'local' }).catch(() => {});
+            }
         }
         sessionStorage.removeItem('admin_authenticated');
+        localStorage.removeItem('supabase.auth.token'); // Limpieza forzada de fallback
     },
 
     async getCurrentUser() {
@@ -80,7 +86,7 @@ const DataManager = {
             }
             return productores;
         } else {
-            let query = this.supabase.from('productores').select('*');
+            let query = this.supabase.from('dcava_productores').select('*');
             if (filters.activo !== undefined) {
                 query = query.eq('activo', filters.activo);
             }
@@ -103,7 +109,7 @@ const DataManager = {
             return newProductor;
         } else {
             const { data: result, error } = await this.supabase
-                .from('productores')
+                .from('dcava_productores')
                 .insert([data])
                 .select();
             if (error) throw error;
@@ -123,7 +129,7 @@ const DataManager = {
             return null;
         } else {
             const { data: result, error } = await this.supabase
-                .from('productores')
+                .from('dcava_productores')
                 .update(data)
                 .eq('id', id)
                 .select();
@@ -139,7 +145,7 @@ const DataManager = {
             localStorage.setItem('productores', JSON.stringify(productores));
             return true;
         } else {
-            const { error } = await this.supabase.from('productores').delete().eq('id', id);
+            const { error } = await this.supabase.from('dcava_productores').delete().eq('id', id);
             if (error) throw error;
             return true;
         }
@@ -159,13 +165,13 @@ const DataManager = {
             if (filters.visible_tienda !== undefined) productos = productos.filter(p => p.visible_tienda === filters.visible_tienda);
             return productos;
         } else {
-            let query = this.supabase.from('productos').select('*, productores(nombre)');
+            let query = this.supabase.from('dcava_productos').select('*, dcava_productores(nombre)');
             if (filters.categoria) query = query.eq('categoria', filters.categoria);
             if (filters.activo !== undefined) query = query.eq('activo', filters.activo);
             if (filters.visible_tienda !== undefined) query = query.eq('visible_tienda', filters.visible_tienda);
             const { data, error } = await query;
             if (error) throw error;
-            return data.map(p => ({ ...p, productor_nombre: p.productores?.nombre || 'Desconocido' }));
+            return data.map(p => ({ ...p, productor_nombre: p.dcava_productores?.nombre || 'Desconocido' }));
         }
     },
 
@@ -174,7 +180,7 @@ const DataManager = {
             const productos = JSON.parse(localStorage.getItem('productos') || '[]');
             return productos.find(p => p.id === id);
         } else {
-            const { data, error } = await this.supabase.from('productos').select('*').eq('id', id).single();
+            const { data, error } = await this.supabase.from('dcava_productos').select('*').eq('id', id).single();
             if (error) throw error;
             return data;
         }
@@ -188,7 +194,7 @@ const DataManager = {
             localStorage.setItem('productos', JSON.stringify(productos));
             return newP;
         } else {
-            const { data: result, error } = await this.supabase.from('productos').insert([data]).select();
+            const { data: result, error } = await this.supabase.from('dcava_productos').insert([data]).select();
             if (error) throw error;
             return result[0];
         }
@@ -205,9 +211,22 @@ const DataManager = {
             }
             return null;
         } else {
-            const { data: result, error } = await this.supabase.from('productos').update(data).eq('id', id).select();
+            const { data: result, error } = await this.supabase.from('dcava_productos').update(data).eq('id', id).select();
             if (error) throw error;
             return result[0];
+        }
+    },
+
+    async deleteProducto(id) {
+        if (this.mode === 'local') {
+            let productos = JSON.parse(localStorage.getItem('productos') || '[]');
+            productos = productos.filter(p => p.id !== id);
+            localStorage.setItem('productos', JSON.stringify(productos));
+            return true;
+        } else {
+            const { error } = await this.supabase.from('dcava_productos').delete().eq('id', id);
+            if (error) throw error;
+            return true;
         }
     },
 
@@ -217,7 +236,7 @@ const DataManager = {
             const config = JSON.parse(localStorage.getItem('config') || '{}');
             return config[key];
         } else {
-            const { data, error } = await this.supabase.from('configuracion').select('valor').eq('clave', key).maybeSingle();
+            const { data, error } = await this.supabase.from('dcava_configuracion').select('valor').eq('clave', key).maybeSingle();
             if (error) throw error;
             return data?.valor;
         }
@@ -231,17 +250,15 @@ const DataManager = {
             return true;
         } else {
             console.log(`📡 Guardando ${key}...`);
-            // Intentamos el upsert directo primero
             const { error } = await this.supabase
-                .from('configuracion')
+                .from('dcava_configuracion')
                 .upsert({ clave: key, valor: value }, { onConflict: 'clave' });
 
             if (error) {
                 console.warn(`⚠️ Conflicto detectado en ${key}, reintentando limpieza manual...`);
-                // Si el upsert falla por conflicto 409, borramos y reinsertamos
-                await this.supabase.from('configuracion').delete().eq('clave', key);
+                await this.supabase.from('dcava_configuracion').delete().eq('clave', key);
                 const { error: retryError } = await this.supabase
-                    .from('configuracion')
+                    .from('dcava_configuracion')
                     .insert([{ clave: key, valor: value }]);
 
                 if (retryError) throw retryError;
@@ -250,13 +267,90 @@ const DataManager = {
         }
     },
 
+    // ===== CATEGORIAS =====
+    async getCategorias() {
+        if (this.mode === 'local') {
+            const defaultCats = [
+                { id: 1, nombre: 'Queso', slug: 'queso', icono: '🧀' },
+                { id: 2, nombre: 'Embutido', slug: 'embutido', icono: '🥓' }
+            ];
+            const cats = localStorage.getItem('categorias');
+            if (!cats) {
+                localStorage.setItem('categorias', JSON.stringify(defaultCats));
+                return defaultCats;
+            }
+            return JSON.parse(cats);
+        } else {
+            const { data, error } = await this.supabase
+                .from('dcava_categorias')
+                .select('*')
+                .order('nombre', { ascending: true });
+            if (error) throw error;
+            return data;
+        }
+    },
+
+    async createCategoria(data) {
+        if (this.mode === 'local') {
+            const cats = await this.getCategorias();
+            const newC = { id: Date.now(), ...data };
+            cats.push(newC);
+            localStorage.setItem('categorias', JSON.stringify(cats));
+            return newC;
+        } else {
+            const { data: result, error } = await this.supabase
+                .from('dcava_categorias')
+                .insert([data])
+                .select();
+            if (error) throw error;
+            return result[0];
+        }
+    },
+
+    async updateCategoria(id, data) {
+        if (this.mode === 'local') {
+            const cats = await this.getCategorias();
+            const idx = cats.findIndex(c => c.id === id);
+            if (idx !== -1) {
+                cats[idx] = { ...cats[idx], ...data };
+                localStorage.setItem('categorias', JSON.stringify(cats));
+                return cats[idx];
+            }
+            return null;
+        } else {
+            const { data: result, error } = await this.supabase
+                .from('dcava_categorias')
+                .update(data)
+                .eq('id', id)
+                .select();
+            if (error) throw error;
+            return result[0];
+        }
+    },
+
+    async deleteCategoria(id) {
+        if (this.mode === 'local') {
+            let cats = await this.getCategorias();
+            cats = cats.filter(c => c.id !== id);
+            localStorage.setItem('categorias', JSON.stringify(cats));
+            return true;
+        } else {
+            const { error } = await this.supabase
+                .from('dcava_categorias')
+                .delete()
+                .eq('id', id);
+            if (error) throw error;
+            return true;
+        }
+    },
+
     // ===== STORAGE =====
     async uploadImagen(file) {
         if (this.mode === 'local') return 'https://via.placeholder.com/400';
         const fileName = `${Date.now()}-${file.name}`;
-        const { error } = await this.supabase.storage.from('productos').upload(fileName, file);
+        const { error } = await this.supabase.storage.from('dcava_productos').upload(fileName, file);
         if (error) throw error;
-        const { data: publicURL } = this.supabase.storage.from('productos').getPublicUrl(fileName);
+        const { data: publicURL } = this.supabase.storage.from('dcava_productos').getPublicUrl(fileName);
         return publicURL.publicUrl;
     },
 
@@ -264,18 +358,83 @@ const DataManager = {
     async getSubscribers() {
         if (this.mode === 'local') return JSON.parse(localStorage.getItem('subscribers') || '[]');
         const { data, error } = await this.supabase
-            .from('suscripciones')
-            .select('*, clientes(nombre, email), packs_suscripcion(nombre)')
+            .from('dcava_suscripciones')
+            .select('*, dcava_clientes(nombre, email), dcava_packs_suscripcion(nombre)')
             .order('created_at', { ascending: false });
         if (error) throw error;
         return data.map(s => ({
             id: s.id,
-            nombre: s.clientes?.nombre || 'Desconocido',
-            email: s.clientes?.email || 'N/A',
-            plan: s.packs_suscripcion?.nombre || 'N/A',
+            nombre: s.dcava_clientes?.nombre || 'Desconocido',
+            email: s.dcava_clientes?.email || 'N/A',
+            plan: s.dcava_packs_suscripcion?.nombre || 'N/A',
             fecha_inicio: s.fecha_inicio,
             estado: s.estado
         }));
+    },
+
+    async createSuscripcion(clienteId, packId) {
+        if (this.mode === 'local') {
+            const subs = JSON.parse(localStorage.getItem('subscribers') || '[]');
+            const newSub = {
+                id: Date.now(),
+                cliente_id: clienteId,
+                pack_id: packId,
+                fecha_inicio: new Date().toISOString(),
+                estado: 'activa',
+                created_at: new Date().toISOString()
+            };
+            subs.push(newSub);
+            localStorage.setItem('subscribers', JSON.stringify(subs));
+            return newSub;
+        } else {
+            const { data, error } = await this.supabase
+                .from('dcava_suscripciones')
+                .insert([{
+                    cliente_id: clienteId,
+                    pack_id: packId,
+                    estado: 'activa',
+                    fecha_inicio: new Date().toISOString().split('T')[0]
+                }])
+                .select()
+                .single();
+
+            if (error) throw error;
+            return data;
+        }
+    },
+
+    async updateSuscripcion(id, data) {
+        if (this.mode === 'local') {
+            const subs = JSON.parse(localStorage.getItem('subscribers') || '[]');
+            const idx = subs.findIndex(s => s.id === id);
+            if (idx !== -1) {
+                subs[idx] = { ...subs[idx], ...data };
+                localStorage.setItem('subscribers', JSON.stringify(subs));
+                return subs[idx];
+            }
+            return null;
+        } else {
+            const { data: result, error } = await this.supabase
+                .from('dcava_suscripciones')
+                .update(data)
+                .eq('id', id)
+                .select();
+            if (error) throw error;
+            return result[0];
+        }
+    },
+
+    async deleteSuscripcion(id) {
+        if (this.mode === 'local') {
+            let subs = JSON.parse(localStorage.getItem('subscribers') || '[]');
+            subs = subs.filter(s => s.id !== id);
+            localStorage.setItem('subscribers', JSON.stringify(subs));
+            return true;
+        } else {
+            const { error } = await this.supabase.from('dcava_suscripciones').delete().eq('id', id);
+            if (error) throw error;
+            return true;
+        }
     },
 
     // ===== CLIENTES =====
@@ -290,9 +449,9 @@ const DataManager = {
             }
             return c;
         } else {
-            const { data: existing } = await this.supabase.from('clientes').select('*').eq('email', email).maybeSingle();
+            const { data: existing } = await this.supabase.from('dcava_clientes').select('*').eq('email', email).maybeSingle();
             if (existing) return existing;
-            const { data: created, error } = await this.supabase.from('clientes').insert([{ email, nombre }]).select().single();
+            const { data: created, error } = await this.supabase.from('dcava_clientes').insert([{ email, nombre }]).select().single();
             if (error) throw error;
             return created;
         }
@@ -302,37 +461,51 @@ const DataManager = {
     async getPedidosFull() {
         if (this.mode === 'local') return JSON.parse(localStorage.getItem('orders') || '[]');
         const { data, error } = await this.supabase
-            .from('pedidos')
-            .select('*, clientes(nombre)')
+            .from('dcava_pedidos')
+            .select('*, dcava_clientes(nombre), dcava_pedido_items(*)')
             .order('created_at', { ascending: false });
         if (error) throw error;
         return data.map(o => ({
             id: o.id,
             fecha: o.created_at,
-            cliente: o.clientes?.nombre || 'Anónimo',
+            cliente: o.dcava_clientes?.nombre || 'Anónimo',
             total: o.total,
-            estado: o.estado
+            estado: o.estado,
+            productos: o.dcava_pedido_items?.map(i => `${i.producto_nombre} x${i.cantidad}`).join(', ') || 'N/A',
+            items: o.dcava_pedido_items?.map(i => ({ id: i.producto_id, quantity: i.cantidad })) || []
         }));
     },
 
     async createPedido(orderData, items) {
         if (this.mode === 'local') {
             const orders = JSON.parse(localStorage.getItem('orders') || '[]');
-            const newO = { id: Date.now(), ...orderData, items, fecha: new Date().toISOString(), estado: 'Pendiente' };
+            const newO = { id: Date.now(), ...orderData, items, fecha: new Date().toISOString(), estado: 'pendiente' };
             orders.push(newO);
             localStorage.setItem('orders', JSON.stringify(orders));
+
+            // Descontar stock localmente
+            const productos = JSON.parse(localStorage.getItem('productos') || '[]');
+            items.forEach(item => {
+                const prod = productos.find(p => p.id === item.id);
+                if (prod) {
+                    prod.stock = Math.max(0, prod.stock - item.quantity);
+                }
+            });
+            localStorage.setItem('productos', JSON.stringify(productos));
+
             return newO;
         } else {
-            // Lógica simplificada de pedido para Supabase
             const cliente = await this.getOrCreateCliente(orderData.email, orderData.nombre);
-            const numeroPedido = 'CC-' + Math.floor(1000 + Math.random() * 9000);
+            const numeroPedido = 'DC-' + Math.floor(1000 + Math.random() * 9000);
 
             const { data: order, error: orderError } = await this.supabase
-                .from('pedidos')
+                .from('dcava_pedidos')
                 .insert([{
                     numero_pedido: numeroPedido,
                     cliente_id: cliente.id,
                     total: orderData.total,
+                    subtotal: orderData.total - (orderData.costo_envio || 0),
+                    costo_envio: orderData.costo_envio || 0,
                     direccion_envio: orderData.direccion,
                     comuna: orderData.comuna,
                     estado: 'pendiente'
@@ -348,11 +521,49 @@ const DataManager = {
                 precio_unitario: item.precio,
                 subtotal: item.precio * item.quantity
             }));
-            await this.supabase.from('pedido_items').insert(itemsToInsert);
+            await this.supabase.from('dcava_pedido_items').insert(itemsToInsert);
+
+            // Descontar stock en Supabase en tiempo real
+            for (const item of items) {
+                const { data: prod } = await this.supabase
+                    .from('dcava_productos')
+                    .select('stock')
+                    .eq('id', item.id)
+                    .single();
+                if (prod) {
+                    const nuevoStock = Math.max(0, prod.stock - item.quantity);
+                    await this.supabase
+                        .from('dcava_productos')
+                        .update({ stock: nuevoStock })
+                        .eq('id', item.id);
+                }
+            }
+
             return order;
+        }
+    },
+
+    async updatePedido(id, data) {
+        if (this.mode === 'local') {
+            const orders = JSON.parse(localStorage.getItem('orders') || '[]');
+            const idx = orders.findIndex(o => o.id === id);
+            if (idx !== -1) {
+                orders[idx] = { ...orders[idx], ...data };
+                localStorage.setItem('orders', JSON.stringify(orders));
+                return orders[idx];
+            }
+            return null;
+        } else {
+            const { data: result, error } = await this.supabase
+                .from('dcava_pedidos')
+                .update(data)
+                .eq('id', id)
+                .select();
+            if (error) throw error;
+            return result[0];
         }
     }
 };
 
 if (DataManager.mode === 'supabase') DataManager.initSupabase();
-console.log(`📊 DataManager v2.1.0 inicializado en modo: ${DataManager.mode}`);
+console.log(`📊 DataManager v2.2.0 (DCAVA) inicializado en modo: ${DataManager.mode}`);

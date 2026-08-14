@@ -6,14 +6,23 @@
 // ===== ESTADO GLOBAL =====
 let cart = [];
 let currentFilter = 'todos';
+let builderSelectedIds = [];
+let armadorProductos = [];
 
 // ===== INICIALIZACIÓN =====
 document.addEventListener('DOMContentLoaded', async () => {
-    console.log('🧀 CABRA & CURADO iniciando...');
+    console.log('🧀 DCAVA iniciando...');
 
     try {
         // Cargar carrito desde localStorage
         loadCart();
+
+        // Inicializar el Armador de Tabla de forma inmediata
+        initArmadorTabla();
+
+        // Vincular event listeners de forma INMEDIATA para que los botones respondan sin esperar a la red
+        setupEventListeners();
+        setupFooterEventListeners();
 
         // Inicializar datos de ejemplo si no existen (puede fallar por RLS)
         try {
@@ -22,16 +31,13 @@ document.addEventListener('DOMContentLoaded', async () => {
             console.warn('⚠️ No se pudo inicializar datos de ejemplo (posible RLS):', e.message);
         }
 
-        // Cargar productores y productos
+        // Cargar productores, productos y filtros dinámicos de categorías
         await Promise.all([
+            loadFilters().catch(e => console.error('Error cargando filtros:', e)),
             loadProductores().catch(e => console.error('Error cargando productores:', e)),
             loadProductos().catch(e => console.error('Error cargando productos:', e)),
             loadFooterConfig().catch(e => console.warn('Error cargando social:', e))
         ]);
-
-        // Event listeners (CRITICO para que los botones funcionen)
-        setupEventListeners();
-        setupFooterEventListeners();
 
         // Efectos visuales
         setupScrollEffects();
@@ -59,19 +65,8 @@ function setupScrollEffects() {
         }
     });
 
-    // Smooth scroll para navegación
-    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
-        anchor.addEventListener('click', function (e) {
-            e.preventDefault();
-            const target = document.querySelector(this.getAttribute('href'));
-            if (target) {
-                target.scrollIntoView({
-                    behavior: 'smooth',
-                    block: 'start'
-                });
-            }
-        });
-    });
+    // Smooth scroll delegado a CSS (scroll-behavior: smooth) para evitar bugs de congelamiento
+    // en navegadores Chromium donde choca JS y CSS smooth scroll.
 }
 
 function setupAnimations() {
@@ -415,10 +410,219 @@ async function loadProductores() {
   `).join('');
 }
 
+// ===== CARGAR FILTROS DINÁMICOS =====
+async function loadFilters() {
+    const container = document.getElementById('filtrosContainer');
+    if (!container) return;
+
+    try {
+        const categorias = await DataManager.getCategorias();
+        let html = `<button class="filtro-btn ${currentFilter === 'todos' ? 'active' : ''}" data-filter="todos">Todo</button>`;
+        categorias.forEach(cat => {
+            html += `<button class="filtro-btn ${currentFilter === cat.slug ? 'active' : ''}" data-filter="${cat.slug}">${cat.nombre}s</button>`;
+        });
+        container.innerHTML = html;
+
+        // Vincular eventos click a los nuevos botones
+        container.querySelectorAll('.filtro-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                container.querySelectorAll('.filtro-btn').forEach(b => b.classList.remove('active'));
+                e.target.classList.add('active');
+                const filter = e.target.dataset.filter;
+                currentFilter = filter;
+                loadProductos(filter);
+            });
+        });
+    } catch (err) {
+        console.error('Error al renderizar filtros dinámicos:', err);
+    }
+}
+
+// ===== LÓGICA DE ARMADOR DE TABLA INTERACTIVO =====
+// ===== LÓGICA DE ARMADOR DE TABLA INTERACTIVO =====
+const defaultArmadorProductos = [
+    { id: 101, nombre: 'Queso de Cabra Curado', categoria: 'QUESO', precio_venta: 8990, stock: 99 },
+    { id: 102, nombre: 'Chorizo Artesanal Ahumado', categoria: 'CHARCUTERÍA', precio_venta: 6490, stock: 99 },
+    { id: 103, nombre: 'Queso Azul Gran Reserva', categoria: 'QUESO', precio_venta: 11990, stock: 99 },
+    { id: 104, nombre: 'Jamón Serrano Reserva', categoria: 'CHARCUTERÍA', precio_venta: 14990, stock: 99 },
+    { id: 105, nombre: 'Queso Brie Trufado', categoria: 'QUESO', precio_venta: 9990, stock: 99 },
+    { id: 106, nombre: 'Salami Fino Especiado', categoria: 'CHARCUTERÍA', precio_venta: 7490, stock: 99 }
+];
+
+armadorProductos = [...defaultArmadorProductos];
+
+function formatMoneyCLP(amount) {
+    return '$' + Number(amount).toLocaleString('es-CL');
+}
+
+function isProductSelected(productId) {
+    return builderSelectedIds.some(id => String(id) === String(productId));
+}
+
+function initArmadorTabla() {
+    const catalogContainer = document.getElementById('builderCatalog');
+    if (!catalogContainer) return;
+
+    catalogContainer.innerHTML = armadorProductos.map(p => {
+        const selected = isProductSelected(p.id);
+        const catLabel = p.categoria ? p.categoria.toUpperCase() : 'GOURMET';
+        return `
+            <button type="button" class="builder-item-btn ${selected ? 'selected' : ''}" 
+                    data-id="${p.id}"
+                    aria-pressed="${selected}">
+                <span class="builder-item-category">${catLabel}</span>
+                <div class="builder-item-header">
+                    <span class="builder-item-name">${p.nombre}</span>
+                    ${selected ? '<i class="fa-solid fa-circle-check builder-item-check check-pop"></i>' : ''}
+                </div>
+                <span class="builder-item-price">${formatMoneyCLP(p.precio_venta || p.precio)}</span>
+            </button>
+        `;
+    }).join('');
+
+    renderArmadorSummary();
+}
+
+function toggleBuilderItem(id) {
+    if (!id) return;
+    const targetId = String(id);
+    const index = builderSelectedIds.findIndex(x => String(x) === targetId);
+    
+    if (index !== -1) {
+        builderSelectedIds.splice(index, 1);
+    } else {
+        if (builderSelectedIds.length >= 6) {
+            alert('¡Llegaste al límite máximo de 6 productos para una sola tabla!');
+            return;
+        }
+        builderSelectedIds.push(targetId);
+    }
+
+    initArmadorTabla();
+}
+
+function renderArmadorSummary() {
+    const listEl = document.getElementById('builderItemsList');
+    const totalEl = document.getElementById('builderTotalPrice');
+    const totalRowEl = document.getElementById('builderTotalRow');
+    const helperEl = document.getElementById('builderHelperText');
+    const btnEl = document.getElementById('builderAddToCartBtn');
+    const shippingNoticeEl = document.getElementById('builderShippingNotice');
+
+    if (!listEl || !totalEl || !btnEl) return;
+
+    const selectedProducts = armadorProductos.filter(p => isProductSelected(p.id));
+    const total = selectedProducts.reduce((sum, p) => sum + Number(p.precio_venta || p.precio || 0), 0);
+    const count = selectedProducts.length;
+    const isDisabled = count < 3;
+
+    // Render Lista
+    if (count === 0) {
+        listEl.innerHTML = '<li class="builder-empty-msg">Selecciona al menos 3 productos para armar tu tabla.</li>';
+        if (totalRowEl) totalRowEl.style.display = 'none';
+        if (shippingNoticeEl) shippingNoticeEl.style.display = 'none';
+        if (helperEl) helperEl.style.display = 'none';
+        btnEl.style.display = 'none';
+    } else {
+        listEl.innerHTML = selectedProducts.map(p => `
+            <li>
+                <span>${p.nombre}</span>
+                <span>${formatMoneyCLP(p.precio_venta || p.precio)}</span>
+            </li>
+        `).join('');
+
+        if (totalRowEl) totalRowEl.style.display = 'flex';
+        if (helperEl) helperEl.style.display = 'block';
+        btnEl.style.display = 'block';
+
+        // Render Sugerencia de Envío Gratis (Gratis sobre $50.000)
+        if (shippingNoticeEl) {
+            shippingNoticeEl.style.display = 'block';
+            if (total >= 50000) {
+                shippingNoticeEl.innerHTML = '✓ <strong>¡Felicidades! Tienes Envío Gratis</strong>';
+            } else {
+                const faltaEnvio = 50000 - total;
+                shippingNoticeEl.innerHTML = `💡 Agrega <strong>${formatMoneyCLP(faltaEnvio)}</strong> más para <strong>envío gratis</strong>`;
+            }
+        }
+    }
+
+    // Render Totales y Ayuda
+    totalEl.textContent = formatMoneyCLP(total);
+
+    if (count < 3) {
+        const falta = 3 - count;
+        if (helperEl) helperEl.textContent = `Llevas ${count}, mínimo 3.`;
+        btnEl.textContent = `ELIGE ${falta} MÁS`;
+    } else {
+        if (helperEl) helperEl.textContent = `${count} de 6 productos seleccionados.`;
+        btnEl.textContent = 'AGREGAR TABLA AL CARRITO';
+    }
+
+    btnEl.disabled = isDisabled;
+    btnEl.onclick = () => addBuilderToCart(selectedProducts);
+}
+
+function addBuilderToCart(selectedProducts) {
+    if (!selectedProducts || selectedProducts.length < 3) return;
+
+    selectedProducts.forEach(p => {
+        const itemCat = p.categoria ? String(p.categoria).toLowerCase() : 'queso';
+        const existingItem = cart.find(item => String(item.id) === String(p.id));
+
+        if (existingItem) {
+            existingItem.quantity += 1;
+        } else {
+            cart.push({
+                id: p.id,
+                nombre: p.nombre,
+                precio: Number(p.precio_venta || p.precio || 0),
+                quantity: 1,
+                stock: p.stock || 99,
+                categoria: itemCat.includes('charcut') ? 'embutido' : 'queso'
+            });
+        }
+    });
+
+    saveCart();
+    updateCartCount();
+    if (typeof renderCart === 'function') {
+        renderCart();
+    }
+
+    showToast(`¡Tabla personalizada (${selectedProducts.length} productos) agregada al carrito!`);
+
+    // Limpiar selección y re-renderizar
+    builderSelectedIds = [];
+    initArmadorTabla();
+
+    // Abrir modal del carrito
+    openCart();
+}
+
+const defaultProductosTienda = [
+    { id: 1, nombre: 'Queso de Cabra Curado', categoria: 'queso', precio_venta: 8990, stock: 99, productor_nombre: 'Quesería Los Andes', descripcion: 'Queso artesanal madurado 6 meses con aroma intenso y textura firme.' },
+    { id: 2, nombre: 'Chorizo Artesanal Ahumado', categoria: 'embutido', precio_venta: 6490, stock: 99, productor_nombre: 'Charcutería Tradicional', descripcion: 'Chorizo ahumado en madera de roble, sazonado con pimentón dulce.' },
+    { id: 3, nombre: 'Queso Azul Gran Reserva', categoria: 'queso', precio_venta: 11990, stock: 99, productor_nombre: 'Cava del Valle', descripcion: 'Queso azul cremoso con vetas intensas y maduración en cueva natural.' },
+    { id: 4, nombre: 'Jamón Serrano Reserva', categoria: 'embutido', precio_venta: 14990, stock: 99, productor_nombre: 'Charcutería Tradicional', descripcion: 'Curado lento durante 12 meses con corte fino y sabor característico.' },
+    { id: 5, nombre: 'Queso Brie Trufado', categoria: 'queso', precio_venta: 9990, stock: 99, productor_nombre: 'Quesería Los Andes', descripcion: 'Brie de pasta blanda enriquecido con láminas de trufa negra.' },
+    { id: 6, nombre: 'Salami Fino Especiado', categoria: 'embutido', precio_venta: 7490, stock: 99, productor_nombre: 'Charcutería Tradicional', descripcion: 'Salami artesanal curado con pimienta en grano y hierbas aromáticas.' }
+];
+
 // ===== CARGAR PRODUCTOS =====
 async function loadProductos(filter = 'todos') {
-    const filters = filter === 'todos' ? { activo: true, visible_tienda: true } : { categoria: filter, activo: true, visible_tienda: true };
-    const productos = await DataManager.getProductos(filters);
+    let productos = [];
+    try {
+        const filters = filter === 'todos' ? { activo: true, visible_tienda: true } : { categoria: filter, activo: true, visible_tienda: true };
+        productos = await DataManager.getProductos(filters);
+    } catch (e) {
+        console.warn('Cargando productos de reserva:', e);
+    }
+    
+    if (!productos || productos.length === 0) {
+        productos = filter === 'todos' ? defaultProductosTienda : defaultProductosTienda.filter(p => p.categoria === filter);
+    }
+
     const grid = document.getElementById('productosGrid');
 
     if (!grid) return;
@@ -472,16 +676,19 @@ async function loadProductos(filter = 'todos') {
 
 // ===== EVENT LISTENERS =====
 function setupEventListeners() {
-    // Filtros de productos
-    document.querySelectorAll('.filtro-btn').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            document.querySelectorAll('.filtro-btn').forEach(b => b.classList.remove('active'));
-            e.target.classList.add('active');
-            const filter = e.target.dataset.filter;
-            currentFilter = filter;
-            loadProductos(filter);
-        });
-    });
+    // Delegación de eventos para el Armador de Tabla
+    const builderCatalog = document.getElementById('builderCatalog');
+    if (builderCatalog) {
+        builderCatalog.onclick = (e) => {
+            const btn = e.target.closest('.builder-item-btn');
+            if (btn) {
+                const id = btn.dataset.id || btn.getAttribute('data-id');
+                if (id) {
+                    toggleBuilderItem(id);
+                }
+            }
+        };
+    }
 
     // Botón carrito
     const cartBtn = document.getElementById('cartBtn');
@@ -540,10 +747,16 @@ function setupEventListeners() {
     // Botón Cuenta
     const accountBtn = document.getElementById('accountBtn');
     if (accountBtn) {
-        accountBtn.addEventListener('click', () => {
-            if (sessionStorage.getItem('user_email')) {
+        accountBtn.addEventListener('click', async () => {
+            // Verificar estado real en Supabase para evitar falsos positivos
+            const user = await DataManager.getCurrentUser();
+            if (user) {
                 openProfileModal();
             } else {
+                // Limpiar sesión local por si acaso
+                sessionStorage.removeItem('user_email');
+                sessionStorage.removeItem('is_admin');
+                sessionStorage.removeItem('admin_authenticated');
                 openAuthModal();
             }
         });
@@ -595,7 +808,7 @@ function setupEventListeners() {
                     closeAuthModalFunc();
 
                     // Si es admin, preguntar si quiere ir al panel
-                    const isAdmin = data.user.email === 'admin@cabraycurado.cl' || data.user.email === 'ambler.eduardo@gmail.com';
+                    const isAdmin = data.user.email === 'admin@dcava.cl' || data.user.email === 'ambler.eduardo@gmail.com';
                     if (isAdmin) {
                         sessionStorage.setItem('admin_authenticated', 'true');
                         if (confirm('💪 Hola Eduardo, bienvenido. ¿Deseas ir al Panel de Administración?')) {
@@ -663,6 +876,17 @@ async function checkAuthState() {
     const user = await DataManager.getCurrentUser();
     if (user) {
         updateUserUI(user);
+    } else {
+        // Si no hay sesión activa en Supabase, limpiar sessionStorage y restablecer la UI
+        sessionStorage.removeItem('user_email');
+        sessionStorage.removeItem('is_admin');
+        sessionStorage.removeItem('admin_authenticated');
+        const accountBtn = document.getElementById('accountBtn');
+        if (accountBtn) {
+            accountBtn.innerHTML = `
+                👤 <span class="btn-text">Mi Cuenta</span>
+            `;
+        }
     }
 }
 
@@ -671,7 +895,7 @@ function updateUserUI(user) {
     if (accountBtn) {
         const name = user.user_metadata?.nombre || user.email.split('@')[0];
         const isAdmin = user.user_metadata?.rol === 'admin' ||
-            user.email === 'admin@cabraycurado.cl' ||
+            user.email === 'admin@dcava.cl' ||
             user.email === 'ambler.eduardo@gmail.com'; // Permitir acceso rápido a Eduardo
 
         let adminLink = '';
@@ -724,7 +948,7 @@ async function loadProfileData() {
     if (emailEl) emailEl.textContent = user.email;
 
     // Verificar si es admin para mostrar botón de acceso
-    const isAdmin = user.email === 'admin@cabraycurado.cl' || user.email === 'ambler.eduardo@gmail.com';
+    const isAdmin = user.email === 'admin@dcava.cl' || user.email === 'ambler.eduardo@gmail.com';
     const profileActions = document.getElementById('profileAdminActions');
     if (profileActions) {
         if (isAdmin) {
@@ -743,15 +967,15 @@ async function loadProfileData() {
     const activeSubCard = document.getElementById('activeSubCard');
     try {
         const { data: cliente } = await DataManager.supabase
-            .from('clientes')
+            .from('dcava_clientes')
             .select('id')
             .eq('email', user.email)
             .single();
 
         if (cliente) {
             const { data: userSub } = await DataManager.supabase
-                .from('suscripciones')
-                .select('*, packs_suscripcion(nombre)')
+                .from('dcava_suscripciones')
+                .select('*, dcava_packs_suscripcion(nombre)')
                 .eq('cliente_id', cliente.id)
                 .order('created_at', { ascending: false })
                 .limit(1)
@@ -761,7 +985,7 @@ async function loadProfileData() {
                 activeSubCard.innerHTML = `
                     <div style="display:flex; justify-content:space-between; align-items:center;">
                         <div>
-                            <strong style="color:white; display:block; margin-bottom:0.2rem;">${userSub.packs_suscripcion?.nombre || 'Suscripción'}</strong>
+                            <strong style="color:white; display:block; margin-bottom:0.2rem;">${userSub.dcava_packs_suscripcion?.nombre || 'Suscripción'}</strong>
                             <span style="font-size:0.8rem; color:var(--text-muted);">Estado: ${userSub.estado}</span>
                         </div>
                         <span class="status-badge" style="background:var(--gold); color:var(--bg-main); padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.7rem;">Activa</span>
@@ -781,14 +1005,14 @@ async function loadProfileData() {
     const orderList = document.getElementById('orderHistoryList');
     try {
         const { data: cliente } = await DataManager.supabase
-            .from('clientes')
+            .from('dcava_clientes')
             .select('id')
             .eq('email', user.email)
             .single();
 
         if (cliente) {
             const { data: orders, error } = await DataManager.supabase
-                .from('pedidos')
+                .from('dcava_pedidos')
                 .select('*')
                 .eq('cliente_id', cliente.id)
                 .order('created_at', { ascending: false })
@@ -838,7 +1062,7 @@ function switchAuthTab(tabName) {
 
 // ===== CARRITO =====
 function loadCart() {
-    const savedCart = localStorage.getItem('cabra_curado_cart');
+    const savedCart = localStorage.getItem('dcava_cart');
     if (savedCart) {
         cart = JSON.parse(savedCart);
         updateCartCount();
@@ -846,7 +1070,7 @@ function loadCart() {
 }
 
 function saveCart() {
-    localStorage.setItem('cabra_curado_cart', JSON.stringify(cart));
+    localStorage.setItem('dcava_cart', JSON.stringify(cart));
     updateCartCount();
 }
 
@@ -858,7 +1082,31 @@ function updateCartCount() {
     }
 }
 
-async function addToCart(productId) {
+let toastTimer = null;
+function showToast(message) {
+    clearTimeout(toastTimer);
+    let toast = document.getElementById('cartToast');
+    if (!toast) {
+        toast = document.createElement('div');
+        toast.id = 'cartToast';
+        toast.className = 'toast';
+        toast.innerHTML = `<i class="fa-solid fa-circle-check" style="color:var(--gold);"></i><span id="cartToastMsg"></span>`;
+        document.body.appendChild(toast);
+    }
+    document.getElementById('cartToastMsg').textContent = message;
+    toast.style.display = 'flex';
+
+    const badge = document.getElementById('cartCount');
+    if (badge) {
+        badge.classList.remove('bounce');
+        void badge.offsetWidth; // Forzar reflow para reiniciar animación
+        badge.classList.add('bounce');
+    }
+
+    toastTimer = setTimeout(() => { toast.style.display = 'none'; }, 2200);
+}
+
+async function addToCart(productId, isSilent = false) {
     const productos = await DataManager.getProductos();
     const product = productos.find(p => p.id === productId);
 
@@ -894,8 +1142,11 @@ async function addToCart(productId) {
 
     saveCart();
 
-    // Animación visual
-    // Animación visual
+    if (!isSilent) {
+        showToast(`${product.nombre} agregado al carrito`);
+    }
+
+    // Animación visual en el botón del catálogo
     const btn = document.querySelector(`.add-to-cart-btn[data-id="${productId}"]`);
     if (btn) {
         const originalText = btn.textContent;
@@ -917,17 +1168,32 @@ function removeFromCart(productId) {
     renderCart();
 }
 
-function updateQuantity(productId, change) {
+async function updateQuantity(productId, change) {
     const item = cart.find(item => item.id === productId);
     if (!item) return;
+
+    if (change > 0) {
+        // Consultar el stock real en tiempo real antes de permitir incrementar
+        try {
+            const productos = await DataManager.getProductos();
+            const product = productos.find(p => p.id === productId);
+            if (product) {
+                item.stock = product.stock;
+            }
+        } catch (err) {
+            console.error('Error al validar stock en tiempo real:', err);
+        }
+    }
 
     item.quantity += change;
 
     if (item.quantity <= 0) {
         removeFromCart(productId);
     } else if (item.quantity > item.stock) {
-        alert('No hay más stock disponible');
+        alert(`No hay más stock disponible en la tienda para este producto (Stock disponible: ${item.stock})`);
         item.quantity = item.stock;
+        saveCart();
+        renderCart();
     } else {
         saveCart();
         renderCart();
@@ -1034,14 +1300,17 @@ window.removeFromCart = removeFromCart;
 window.openProfileModal = openProfileModal;
 window.closeProfileModalFunc = closeProfileModalFunc;
 window.switchAuthTab = switchAuthTab;
+window.toggleBuilderItem = toggleBuilderItem;
+window.showToast = showToast;
 
 // ===== FUNCIONES FOOTER =====
 async function loadFooterConfig() {
     try {
-        const [instagram, facebook, whatsapp] = await Promise.all([
+        const [instagram, facebook, whatsapp, email] = await Promise.all([
             DataManager.getConfig('instagram_url'),
             DataManager.getConfig('facebook_url'),
-            DataManager.getConfig('whatsapp')
+            DataManager.getConfig('whatsapp'),
+            DataManager.getConfig('email_contacto')
         ]);
 
         const socialContainer = document.getElementById('footerSocial');
@@ -1051,8 +1320,22 @@ async function loadFooterConfig() {
             if (facebook && links[1]) links[1].href = facebook;
             if (whatsapp && links[2]) links[2].href = `https://wa.me/${whatsapp.replace(/\+/g, '')}`;
         }
+
+        // Cargar también en la barra lateral de contacto en index.html
+        const contactWhatsapp = document.getElementById('contactWhatsapp');
+        if (contactWhatsapp && whatsapp) {
+            contactWhatsapp.href = `https://wa.me/${whatsapp.replace(/\+/g, '')}`;
+            contactWhatsapp.textContent = whatsapp;
+            contactWhatsapp.target = '_blank';
+        }
+
+        const contactEmail = document.getElementById('contactEmail');
+        if (contactEmail && email) {
+            contactEmail.href = `mailto:${email}`;
+            contactEmail.textContent = email;
+        }
     } catch (e) {
-        console.warn('⚠️ No se pudo cargar la configuración de redes sociales:', e.message);
+        console.warn('⚠️ No se pudo cargar la configuración de redes sociales o contacto:', e.message);
     }
 }
 
@@ -1084,7 +1367,7 @@ async function processSubscription(packId, packName) {
         // 2. Crear la suscripción (usando el ID numérico que espera la DB)
         await DataManager.createSuscripcion(cliente.id, parseInt(packId));
 
-        alert(`🎉 ¡Felicidades! Te has suscrito con éxito al ${packName}.\nBienvenid@ a la familia Cabra & Curado.`);
+        alert(`🎉 ¡Felicidades! Te has suscrito con éxito al ${packName}.\nBienvenid@ a la familia DCAVA.`);
 
         sessionStorage.removeItem('pending_subscription_id');
         sessionStorage.removeItem('pending_subscription_name');
