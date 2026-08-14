@@ -638,8 +638,8 @@ async function loadProductos(filter = 'todos') {
         if (producto.imagen_url && producto.imagen_url.length > 5) {
             imageHtml = `<img src="${producto.imagen_url}" alt="${producto.nombre}">`;
         } else {
-            const icon = producto.categoria === 'queso' ? '🧀' : '🥓';
-            imageHtml = `<i style="font-style:normal">${icon}</i>`;
+            const defaultImg = producto.categoria === 'queso' ? 'assets/default-queso.jpg' : 'assets/default-embutido.jpg';
+            imageHtml = `<img src="${defaultImg}" alt="${producto.nombre} (Imagen referencial)">`;
         }
 
         // Descripción corta
