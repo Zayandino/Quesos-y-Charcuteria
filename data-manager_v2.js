@@ -80,30 +80,21 @@ const DataManager = {
     // Helper para limpiar mojibakes y URLs incorrectas de la base de datos
     sanitizeText(text) {
         if (!text) return text;
-        return text.replace(/CHILL\?\?N/g, 'Chillán')
-            .replace(/Chill\?\?n/g, 'Chillán')
-            .replace(/\?\?UBLE/g, 'Ñuble')
-            .replace(/\?\?uble/g, 'Ñuble')
-            .replace(/L\?\?cteos/g, 'Lácteos')
-            .replace(/R\?\?OS/g, 'Ríos')
-            .replace(/R\?\?os/g, 'Ríos')
-            .replace(/REGI\?\?N/g, 'Región')
-            .replace(/Regi\?\?n/g, 'Región')
-            .replace(/tradici\?\?n/g, 'tradición')
-            .replace(/Maduraci\?\?n/g, 'Maduración')
-            .replace(/maduraci\?\?n/g, 'maduración')
-            .replace(/m\?\?s/g, 'más')
-            .replace(/est\?\?ndares/g, 'estándares')
-            .replace(/queser\?\?a/g, 'quesería')
-            .replace(/adici\?\?n/g, 'adición')
-            .replace(/coraz\?\?n/g, 'corazón')
-            .replace(/\?\?nicos/g, 'únicos')
-            .replace(/mediterr\?\?neas/g, 'mediterráneas')
-            .replace(/creaci\?\?n/g, 'creación')
-            .replace(/aut\?\?ntico/g, 'auténtico')
-            .replace(/\?\?cida/g, 'ácida')
-            .replace(/\?\?cidos/g, 'ácidos')
-            .replace(/\?\?cido/g, 'ácido');
+        const dict = {
+            '??cidas': 'ácidas', 'Maduraci??n': 'Maduración', 'mediterr??neas': 'mediterráneas',
+            'selecci??n': 'selección', 'or??gano': 'orégano', 'maduraci??n': 'maduración',
+            'cl??sico': 'clásico', 'merk??n': 'merkén', 'Araucan??a': 'Araucanía',
+            'emblem??tica': 'emblemática', 'Chill??n': 'Chillán', 'le??a': 'leña',
+            'r??stica': 'rústica', 'piment??n': 'pimentón', 'chorip??n': 'choripán',
+            'catal??n': 'catalán', 'fr??a': 'fría', 'fr??as': 'frías', 'adici??n': 'adición',
+            'd??as': 'días', 'arom??tico': 'aromático', 'L??minas': 'Láminas',
+            'jam??n': 'jamón', 'fr??o': 'frío', '??uble': 'Ñuble', 'coraz??n': 'corazón',
+            'tradici??n': 'tradición', 'm??s': 'más', 'est??ndares': 'estándares',
+            '??nicos': 'únicos', 'L??cteos': 'Lácteos', 'R??os': 'Ríos',
+            'queser??a': 'quesería', 'Regi??n': 'Región', 'CHILL??N': 'CHILLÁN', '??UBLE': 'ÑUBLE'
+        };
+        // Reemplaza cualquier palabra que contenga ?? por su versión corregida si existe en el diccionario
+        return text.replace(/[a-zA-Z]*\?\?[a-zA-Z]*/g, match => dict[match] || match);
     },
 
     sanitizeItem(item) {
