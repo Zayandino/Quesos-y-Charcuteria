@@ -1340,7 +1340,7 @@ img {
     font-size: 0.9rem;
 }
 
-.cart-item-controls button {
+.cart-item-controls button:not(.remove-btn) {
     background: none;
     border: 1px solid rgba(255, 255, 255, 0.1);
     color: var(--text-muted);
@@ -1353,9 +1353,28 @@ img {
     cursor: pointer;
 }
 
-.cart-item-controls button:hover {
+.cart-item-controls button:not(.remove-btn):hover {
     border-color: var(--gold);
     color: var(--gold);
+}
+
+.cart-item-controls .remove-btn {
+    margin-left: 1rem;
+    background: rgba(201, 123, 93, 0.15); /* #C97B5D slightly transparent */
+    color: #C97B5D;
+    border: 1px solid rgba(201, 123, 93, 0.3);
+    width: auto;
+    height: auto;
+    padding: 0.3rem 0.8rem;
+    font-size: 0.8rem;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.cart-item-controls .remove-btn:hover {
+    background: #C97B5D;
+    color: white;
 }
 
 .cart-summary {
