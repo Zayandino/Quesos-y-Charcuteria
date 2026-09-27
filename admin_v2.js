@@ -98,6 +98,43 @@ window.logout = async function () {
     showLoginForm();
 }
 
+// ===== SISTEMA DE NOTIFICACIONES TOAST (reemplaza alert bloqueante) =====
+function showAdminToast(message, type = 'success') {
+    const existing = document.getElementById('adminToast');
+    if (existing) existing.remove();
+
+    const palette = {
+        success: { bg: 'rgba(46,204,113,0.12)', border: '#2ecc71', icon: '✅' },
+        error:   { bg: 'rgba(231,76,60,0.12)',  border: '#e74c3c', icon: '❌' },
+        info:    { bg: 'rgba(52,152,219,0.12)', border: '#3498db', icon: 'ℹ️'  }
+    };
+    const p = palette[type] || palette.success;
+
+    const toast = document.createElement('div');
+    toast.id = 'adminToast';
+    toast.style.cssText = [
+        'position:fixed', 'bottom:28px', 'right:28px', 'z-index:9999',
+        `background:${p.bg}`, `border:1px solid ${p.border}`, 'border-radius:10px',
+        'padding:14px 22px', 'display:flex', 'align-items:center', 'gap:12px',
+        'color:#e0e0e0', 'font-size:0.92rem', 'font-weight:500',
+        'box-shadow:0 12px 30px rgba(0,0,0,0.6)',
+        'animation:adminToastIn 0.25s ease',
+        'max-width:380px', 'font-family:Outfit,sans-serif'
+    ].join(';');
+    toast.innerHTML = `<span style="font-size:1.1rem;">${p.icon}</span><span>${message}</span>`;
+    document.body.appendChild(toast);
+
+    // Agregar keyframes solo una vez
+    if (!document.getElementById('adminToastKeyframes')) {
+        const s = document.createElement('style');
+        s.id = 'adminToastKeyframes';
+        s.textContent = '@keyframes adminToastIn{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:translateX(0)}}';
+        document.head.appendChild(s);
+    }
+    setTimeout(() => { if (document.getElementById('adminToast') === toast) toast.remove(); }, 3500);
+}
+window.showAdminToast = showAdminToast;
+
 // ===== ADMIN INITIALIZATION =====
 async function initializeAdmin() {
     const sections = [
@@ -105,7 +142,9 @@ async function initializeAdmin() {
         { fn: loadProducts, name: 'Productos' },
         { fn: loadSubscribers, name: 'Suscriptores' },
         { fn: loadOrders, name: 'Pedidos' },
-        { fn: loadProducers, name: 'Productores' }
+        { fn: loadProducers, name: 'Productores' },
+        // Cargar config de redes y parámetros para pre-poblar el formulario
+        { fn: async () => { if (typeof window.loadSystemConfig === 'function') await window.loadSystemConfig(); }, name: 'Configuración' }
     ];
 
     for (const section of sections) {
@@ -228,7 +267,14 @@ async function loadProducts() {
                 <div style="font-size: 0.7rem; color: var(--text-muted);">Neto: $${neto.toLocaleString()}</div>
             </td>
             <td style="color: ${p.stock < 10 ? 'var(--accent)' : 'inherit'}">${p.stock}</td>
-            <td><span class="status-badge ${p.stock > 0 ? 'status-active' : 'status-inactive'}">${p.stock > 0 ? 'Activo' : 'Agotado'}</span></td>
+            <td>
+                <span class="status-badge ${p.activo !== false ? 'status-active' : 'status-inactive'}" style="display:inline-block;margin-bottom:3px;">
+                    ${p.activo !== false ? 'Activo' : 'Inactivo'}
+                </span><br>
+                <span class="status-badge" style="background:${p.visible_tienda !== false ? 'rgba(52,152,219,0.15)' : 'rgba(127,127,127,0.1)'};color:${p.visible_tienda !== false ? '#3498db' : '#666'};font-size:0.68rem;">
+                    ${p.visible_tienda !== false ? '👁 Visible' : '🙈 Oculto'}
+                </span>
+            </td>
             <td>
                 <button class="action-btn" onclick="editProduct(${p.id})">✏️</button>
                 <button class="action-btn" onclick="deleteProduct(${p.id})">🗑️</button>
@@ -404,7 +450,7 @@ form.addEventListener('submit', async (e) => {
         loadDashboard();
     } catch (err) {
         console.error('Error saving product:', err);
-        alert('❌ Error al guardar producto.');
+        showAdminToast('Error al guardar el producto. Intenta de nuevo.', 'error');
     }
 });
 
@@ -422,7 +468,7 @@ window.loadOrders = async function () {
         const orderStatusClass = order.estado === 'pagado' || order.estado === 'entregado' ? 'status-active' : 'status-inactive';
         return `
         <tr>
-            <td>#${order.id}</td>
+            <td style="font-weight:700;color:var(--primary);">${order.numero_pedido || ('#' + order.id)}</td>
             <td>${new Date(order.fecha).toLocaleDateString('es-CL')}</td>
             <td>${order.cliente}</td>
             <td style="font-size: 0.85rem; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${order.productos}">
@@ -454,10 +500,10 @@ window.processOrder = async function (orderId) {
             await DataManager.updatePedido(orderId, { estado: 'pagado', estado_pago: 'pagado' });
 
             await initializeAdmin(); // Recargar todo
-            alert('✅ Pedido marcado como pagado correctamente.');
+            showAdminToast('Pedido marcado como pagado correctamente.');
         } catch (error) {
             console.error('Error processing order:', error);
-            alert('❌ Error al procesar el pedido.');
+            showAdminToast('Error al procesar el pedido.', 'error');
         }
     }
 }
@@ -466,14 +512,68 @@ window.viewOrderDetails = async function (orderId) {
     try {
         const orders = await DataManager.getPedidosFull();
         const order = orders.find(o => o.id === orderId);
-        if (order) {
-            alert(`DETALLE PEDIDO #${orderId}\n\nCliente: ${order.cliente}\nProductos: ${order.productos}\nTotal: $${order.total.toLocaleString('es-CL')}\nEstado: ${order.estado}`);
-        } else {
-            alert('Pedido no encontrado.');
+        if (!order) { showAdminToast('Pedido no encontrado.', 'error'); return; }
+
+        const content = document.getElementById('orderDetailsContent');
+        if (!content) { showAdminToast('Modal de detalles no disponible.', 'error'); return; }
+
+        content.innerHTML = `
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+                <div>
+                    <span style="font-size:0.72rem;color:#888;text-transform:uppercase;letter-spacing:.05em;">N\u00famero de Pedido</span>
+                    <div style="font-size:1.2rem;font-weight:700;color:var(--primary);margin-top:.3rem;">${order.numero_pedido || ('#' + order.id)}</div>
+                </div>
+                <div>
+                    <span style="font-size:0.72rem;color:#888;text-transform:uppercase;letter-spacing:.05em;">Fecha</span>
+                    <div style="font-size:1rem;margin-top:.3rem;">${new Date(order.fecha).toLocaleDateString('es-CL')}</div>
+                </div>
+                <div>
+                    <span style="font-size:0.72rem;color:#888;text-transform:uppercase;letter-spacing:.05em;">Cliente</span>
+                    <div style="font-size:1rem;font-weight:600;margin-top:.3rem;">${order.cliente}</div>
+                </div>
+                <div>
+                    <span style="font-size:0.72rem;color:#888;text-transform:uppercase;letter-spacing:.05em;">Total</span>
+                    <div style="font-size:1.2rem;font-weight:700;color:#2ecc71;margin-top:.3rem;">$${order.total.toLocaleString('es-CL')}</div>
+                </div>
+            </div>
+            <div>
+                <span style="font-size:0.72rem;color:#888;text-transform:uppercase;letter-spacing:.05em;">Estado</span>
+                <div style="margin-top:.5rem;">
+                    <span class="status-badge ${order.estado === 'pagado' || order.estado === 'entregado' ? 'status-active' : 'status-inactive'}">${order.estado}</span>
+                </div>
+            </div>
+            <div style="border-top:1px solid rgba(255,255,255,0.06);padding-top:1rem;">
+                <span style="font-size:0.72rem;color:#888;text-transform:uppercase;letter-spacing:.05em;">Productos</span>
+                <div style="font-size:0.88rem;color:#ccc;margin-top:.4rem;line-height:1.7;">${order.productos || 'Sin detalle'}</div>
+            </div>
+        `;
+
+        // Botón de marcar pagado solo para pedidos pendientes
+        const markBtn = document.getElementById('markOrderPaidBtn');
+        if (markBtn) {
+            if (order.estado === 'pendiente') {
+                markBtn.style.display = 'inline-flex';
+                markBtn.onclick = () => { closeOrderDetailsModal(); processOrder(orderId); };
+            } else {
+                markBtn.style.display = 'none';
+            }
+        }
+
+        const detailsModal = document.getElementById('orderDetailsModal');
+        if (detailsModal) {
+            detailsModal.classList.add('active');
+            document.body.classList.add('no-scroll');
         }
     } catch (e) {
         console.error(e);
+        showAdminToast('Error al cargar los detalles del pedido.', 'error');
     }
+}
+
+window.closeOrderDetailsModal = function () {
+    const m = document.getElementById('orderDetailsModal');
+    if (m) m.classList.remove('active');
+    document.body.classList.remove('no-scroll');
 }
 
 // ===== SUSCRIPTORES =====
@@ -545,7 +645,7 @@ if (subForm) {
         try {
             if (id) {
                 await DataManager.updateSuscripcion(parseInt(id), { estado: statusVal });
-                alert('✅ Suscripción actualizada correctamente.');
+                showAdminToast('Suscripci\u00f3n actualizada correctamente.');
             } else {
                 let packId = 1;
                 if (planName.includes('Experiencia')) packId = 2;
@@ -553,14 +653,14 @@ if (subForm) {
 
                 const cliente = await DataManager.getOrCreateCliente(email, name);
                 await DataManager.createSuscripcion(cliente.id, packId);
-                alert('✅ Suscriptor creado correctamente.');
+                showAdminToast('Suscriptor creado correctamente.');
             }
 
             closeSubscriberModal();
             await initializeAdmin();
         } catch (error) {
             console.error('Error guardando suscriptor:', error);
-            alert('❌ Error al guardar suscriptor.');
+            showAdminToast('Error al guardar suscriptor.', 'error');
         }
     });
 }
@@ -570,10 +670,10 @@ window.deleteSubscriber = async function (id) {
         try {
             await DataManager.deleteSuscripcion(id);
             await initializeAdmin();
-            alert('✅ Suscripción eliminada.');
+            showAdminToast('Suscripci\u00f3n eliminada correctamente.');
         } catch (e) {
             console.error(e);
-            alert('❌ Error al eliminar la suscripción.');
+            showAdminToast('Error al eliminar la suscripci\u00f3n.', 'error');
         }
     }
 }
@@ -621,11 +721,11 @@ window.saveSystemConfig = async function () {
             }
         }
 
-        alert('✅ Configuración guardada con éxito.');
+        showAdminToast('Configuraci\u00f3n guardada con \u00e9xito.');
     } catch (error) {
         console.error('Error detallado de guardado:', error);
         const errorMsg = error.message || error.details || 'Error desconocido';
-        alert(`❌ Error al guardar la configuración: ${errorMsg}\n\nSi el error persiste, verifica las políticas RLS en Supabase.`);
+        showAdminToast(`Error al guardar: ${errorMsg.substring(0, 80)}`, 'error');
     }
 }
 
@@ -677,13 +777,13 @@ window.saveProducer = async function () {
         } else {
             await DataManager.createProductor(data);
         }
-        alert('✅ Productor guardado con éxito.');
+        showAdminToast('Productor guardado con \u00e9xito.');
         closeProducerModal();
         loadProducers();
         loadDashboard();
     } catch (error) {
         console.error('Error saving producer:', error);
-        alert('❌ Error al guardar productor.');
+        showAdminToast('Error al guardar productor.', 'error');
     }
 }
 
@@ -707,13 +807,516 @@ window.editProducer = async function (id) {
     }
 }
 
-// Inyectar llamada a loadProducers en showSection
+// Inyectar llamada a loadProducers y loadSystemConfig en showSection
 const originalShowSection = window.showSection;
 window.showSection = function (id) {
     if (id === 'configuracion') {
         loadProducers();
+        if (typeof window.loadSystemConfig === 'function') window.loadSystemConfig();
+    }
+    if (id === 'packs') {
+        loadPacks();
     }
     if (originalShowSection) originalShowSection(id);
+}
+
+// =============================================
+// ===== MÓDULO PACKS DE SUSCRIPCIÓN =====
+// =============================================
+
+// Estado interno del constructor de packs
+let _packInventoryAll = [];   // Todos los productos del inventario
+let _packContent = [];        // [{producto_id, nombre, cantidad, precio_unitario, costo_unitario, stock, stock_minimo}]
+
+// ----- TABLA DE PACKS -----
+window.loadPacks = async function () {
+    const tbody = document.getElementById('packsTableBody');
+    if (!tbody) return;
+
+    try {
+        const [packs, productos] = await Promise.all([
+            DataManager.getPacks(),
+            DataManager.getProductos()
+        ]);
+
+        // Mapa de productos para lookup rápido
+        const prodMap = {};
+        (productos || []).forEach(p => { prodMap[p.id] = p; });
+
+        // Detectar productos con stock crítico en packs activos
+        _renderPackStockAlerts(packs, prodMap);
+
+        if (!packs || packs.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:2.5rem; color:var(--text-muted);">
+                No hay packs creados. Haz click en <strong>+ Nuevo Pack</strong> para comenzar.
+            </td></tr>`;
+            return;
+        }
+
+        tbody.innerHTML = packs.map(pack => {
+            // Calcular métricas del pack
+            const isArray = Array.isArray(pack.contenido);
+            const contenido = isArray ? pack.contenido : [];
+            const isLegacy = !isArray && pack.contenido && typeof pack.contenido === 'object';
+            
+            const nItems = contenido.reduce((s, i) => s + (i.cantidad || 1), 0);
+            const costoEst = contenido.reduce((s, i) => {
+                const prod = prodMap[i.producto_id];
+                const costo = prod ? prod.costo_proveedor : (i.costo_unitario || 0);
+                return s + costo * (i.cantidad || 1);
+            }, 0);
+            const precio = pack.precio_mensual || 0;
+            const margen = precio - costoEst;
+            const pctMargen = precio > 0 ? Math.round((margen / precio) * 100) : 0;
+
+            const margenColor = pctMargen >= 30 ? '#2ecc71' : pctMargen >= 15 ? '#f1c40f' : '#e74c3c';
+
+            // Detectar si algún producto del pack está en stock crítico
+            const tieneStockCritico = contenido.some(item => {
+                const prod = prodMap[item.producto_id];
+                return prod && prod.stock < prod.stock_minimo;
+            });
+
+            const contenidoDisplay = isLegacy
+                ? `<span style="background:rgba(212,175,55,0.15); color:var(--primary); padding:0.3rem 0.7rem; border-radius:20px; font-size:0.75rem;" title="Pack con descripción de texto. Haz clic en ✏️ para armarlo con productos del inventario">📝 Configurar items</span>`
+                : `<span style="background:rgba(255,255,255,0.06); padding:0.3rem 0.7rem; border-radius:20px; font-size:0.8rem;">
+                    ${contenido.length} producto${contenido.length !== 1 ? 's' : ''} · ${nItems} u.
+                   </span>`;
+
+            return `
+            <tr style="${!pack.activo ? 'opacity:0.5;' : ''}">
+                <td>
+                    <div style="font-weight:700; color:white; display:flex; align-items:center; gap:0.6rem;">
+                        ${tieneStockCritico ? '<span title="Stock crítico en este pack" style="color:#e74c3c; font-size:1rem;">⚠️</span>' : ''}
+                        ${pack.nombre}
+                        ${pack.badge ? `<span style="background:rgba(212,175,55,0.2); color:var(--primary); font-size:0.65rem; font-weight:700; padding:0.2rem 0.6rem; border-radius:20px; letter-spacing:.05em;">${pack.badge}</span>` : ''}
+                    </div>
+                    ${pack.descripcion ? `<div style="font-size:0.75rem; color:#666; margin-top:0.2rem; max-width:200px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${pack.descripcion}</div>` : ''}
+                </td>
+                <td style="font-weight:700; color:var(--primary); font-size:1.1rem;">$${precio.toLocaleString('es-CL')}</td>
+                <td>
+                    ${contenidoDisplay}
+                </td>
+                <td style="color:#e74c3c; font-weight:600;">${costoEst > 0 ? `$${costoEst.toLocaleString('es-CL')}` : '<span style="color:#666; font-size:0.8rem;">—</span>'}</td>
+                <td>
+                    ${costoEst > 0 ? `
+                        <div style="color:${margenColor}; font-weight:700;">${pctMargen}%</div>
+                        <div style="font-size:0.72rem; color:#555;">$${margen.toLocaleString('es-CL')}</div>
+                    ` : '<span style="color:#666; font-size:0.8rem;">—</span>'}
+                </td>
+                <td>
+                    <span class="status-badge ${pack.activo ? 'status-active' : 'status-inactive'}" style="cursor:pointer;"
+                        onclick="togglePackActivo(${pack.id}, ${pack.activo})"
+                        title="Click para ${pack.activo ? 'desactivar' : 'activar'}">
+                        ${pack.activo ? 'Activo' : 'Inactivo'}
+                    </span>
+                </td>
+                <td>
+                    <button class="action-btn" onclick="editPack(${pack.id})" title="Editar pack">✏️</button>
+                    <button class="action-btn" onclick="deletePack(${pack.id})" title="Eliminar pack">🗑️</button>
+                </td>
+            </tr>`;
+        }).join('');
+
+    } catch (err) {
+        console.error('Error al cargar packs:', err);
+        showAdminToast('Error al cargar los packs.', 'error');
+    }
+}
+
+// Alertas de stock crítico en la sección de packs
+function _renderPackStockAlerts(packs, prodMap) {
+    const container = document.getElementById('packStockAlerts');
+    if (!container) return;
+
+    const alertas = [];
+    (packs || []).filter(p => p.activo).forEach(pack => {
+        const contenido = Array.isArray(pack.contenido) ? pack.contenido : [];
+        contenido.forEach(item => {
+            const prod = prodMap[item.producto_id];
+            if (prod && prod.stock < prod.stock_minimo) {
+                alertas.push(`<strong>${prod.nombre}</strong> (Pack: ${pack.nombre}) — Stock: ${prod.stock} / mín: ${prod.stock_minimo}`);
+            }
+        });
+    });
+
+    if (alertas.length > 0) {
+        container.innerHTML = `
+        <div style="background:rgba(231,76,60,0.08); border:1px solid rgba(231,76,60,0.25); border-radius:10px; padding:1rem 1.4rem;">
+            <div style="color:#e74c3c; font-weight:700; margin-bottom:0.5rem; font-size:0.88rem;">⚠️ Productos con stock crítico en packs activos:</div>
+            ${alertas.map(a => `<div style="font-size:0.8rem; color:#bbb; margin-top:0.3rem;">• ${a}</div>`).join('')}
+        </div>`;
+    } else {
+        container.innerHTML = '';
+    }
+}
+
+// ----- MODAL CONSTRUCTOR -----
+window.openPackModal = async function (packData) {
+    closeAllModals();
+
+    // Reset estado
+    _packContent = [];
+    document.getElementById('packId').value = '';
+    document.getElementById('packName').value = '';
+    document.getElementById('packPrice').value = '';
+    document.getElementById('packBadge').value = '';
+    document.getElementById('packDesc').value = '';
+    document.getElementById('packInventorySearch').value = '';
+
+    // Toggle activo ON por defecto
+    const chk = document.getElementById('packActivo');
+    chk.checked = true;
+    document.getElementById('packActivoBg').style.background = 'var(--primary)';
+    document.getElementById('packActivoKnob').style.left = '22px';
+
+    document.getElementById('packModalTitle').textContent = '📦 Nuevo Pack';
+
+    // Si es edición, rellenar campos
+    if (packData) {
+        document.getElementById('packId').value = packData.id;
+        document.getElementById('packName').value = packData.nombre;
+        document.getElementById('packPrice').value = packData.precio_mensual;
+        document.getElementById('packBadge').value = packData.badge || '';
+        document.getElementById('packDesc').value = packData.descripcion || '';
+        chk.checked = !!packData.activo;
+        document.getElementById('packActivoBg').style.background = packData.activo ? 'var(--primary)' : 'rgba(255,255,255,0.15)';
+        document.getElementById('packActivoKnob').style.left = packData.activo ? '22px' : '2px';
+        document.getElementById('packModalTitle').textContent = `✏️ Editar Pack: ${packData.nombre}`;
+
+        // Cargar contenido previo
+        if (Array.isArray(packData.contenido)) {
+            _packContent = packData.contenido.map(i => ({ ...i }));
+        }
+    }
+
+    // Cargar inventario
+    try {
+        _packInventoryAll = await DataManager.getProductos();
+    } catch (e) {
+        _packInventoryAll = [];
+    }
+
+    _renderPackInventory(_packInventoryAll);
+    _renderPackContent();
+    recalcPackMetrics();
+
+    document.getElementById('packModal').classList.add('active');
+    document.body.classList.add('no-scroll');
+}
+
+window.closePackModal = function () {
+    document.getElementById('packModal').classList.remove('active');
+    document.body.classList.remove('no-scroll');
+}
+
+// Renderiza la lista de inventario (izquierda)
+function _renderPackInventory(products) {
+    const container = document.getElementById('packInventoryList');
+    if (!container) return;
+
+    if (!products || products.length === 0) {
+        container.innerHTML = `<div style="text-align:center; padding:2rem; color:#555;">No hay productos en inventario.</div>`;
+        return;
+    }
+
+    container.innerHTML = products.map(p => {
+        // Semáforo de stock
+        let stockColor = '#2ecc71'; // verde
+        let stockIcon = '🟢';
+        let stockLabel = 'Ok';
+        const minimo = p.stock_minimo || 5;
+
+        if (p.stock < minimo) {
+            stockColor = '#e74c3c'; stockIcon = '🔴'; stockLabel = 'Crítico';
+        } else if (p.stock < minimo * 2) {
+            stockColor = '#f1c40f'; stockIcon = '🟡'; stockLabel = 'Bajo';
+        }
+
+        // Verificar si ya está en el pack
+        const enPack = _packContent.find(i => i.producto_id === p.id);
+
+        return `
+        <div style="
+            display:flex; align-items:center; gap:0.8rem;
+            background: ${enPack ? 'rgba(212,175,55,0.08)' : 'rgba(255,255,255,0.02)'};
+            border: 1px solid ${enPack ? 'rgba(212,175,55,0.25)' : 'rgba(255,255,255,0.05)'};
+            border-radius:8px; padding:0.7rem 1rem; transition:0.2s;
+        " id="inv-item-${p.id}">
+            <div style="font-size:1.3rem;">${p.categoria === 'queso' ? '🧀' : '🥓'}</div>
+            <div style="flex:1; min-width:0;">
+                <div style="font-weight:600; font-size:0.85rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${p.nombre}</div>
+                <div style="font-size:0.72rem; color:#888; margin-top:0.1rem;">
+                    $${(p.precio_venta || 0).toLocaleString('es-CL')} · Costo $${(p.costo_proveedor || 0).toLocaleString('es-CL')}
+                </div>
+            </div>
+            <div style="text-align:center; flex-shrink:0;">
+                <div style="font-size:0.9rem;">${stockIcon}</div>
+                <div style="font-size:0.65rem; color:${stockColor}; font-weight:700; white-space:nowrap;">${p.stock} u.</div>
+                <div style="font-size:0.6rem; color:#555;">${stockLabel}</div>
+            </div>
+            <button onclick="addProductToPack(${p.id})"
+                style="background:${enPack ? 'rgba(212,175,55,0.2)' : 'rgba(255,255,255,0.06)'}; border:none; border-radius:6px;
+                       width:32px; height:32px; cursor:pointer; color:${enPack ? 'var(--primary)' : 'white'};
+                       font-size:1rem; display:flex; align-items:center; justify-content:center; flex-shrink:0; transition:0.2s;"
+                title="${enPack ? 'Ya en el pack (click para agregar más)' : 'Agregar al pack'}"
+                onmouseover="this.style.background='rgba(212,175,55,0.3)'"
+                onmouseout="this.style.background='${enPack ? 'rgba(212,175,55,0.2)' : 'rgba(255,255,255,0.06)'}'">
+                ${enPack ? '✓' : '+'}
+            </button>
+        </div>`;
+    }).join('');
+}
+
+// Renderiza el contenido del pack (derecha)
+function _renderPackContent() {
+    const list = document.getElementById('packContentList');
+    const empty = document.getElementById('packContentEmpty');
+    if (!list) return;
+
+    // Limpiar items previos (dejar el div empty)
+    Array.from(list.querySelectorAll('.pack-content-item')).forEach(el => el.remove());
+
+    if (_packContent.length === 0) {
+        if (empty) empty.style.display = 'flex';
+        return;
+    }
+    if (empty) empty.style.display = 'none';
+
+    _packContent.forEach(item => {
+        const div = document.createElement('div');
+        div.className = 'pack-content-item';
+        div.setAttribute('data-pid', item.producto_id);
+
+        // Stock warning inline
+        const stockWarn = item.stock !== undefined && item.stock < (item.stock_minimo || 5)
+            ? `<span title="Stock crítico" style="color:#e74c3c; font-size:0.75rem;">⚠️ Stock: ${item.stock}</span>`
+            : '';
+
+        div.style.cssText = `
+            display:flex; align-items:center; gap:0.7rem;
+            background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.07);
+            border-radius:8px; padding:0.6rem 0.8rem;
+        `;
+        div.innerHTML = `
+            <div style="flex:1; min-width:0;">
+                <div style="font-weight:600; font-size:0.83rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${item.nombre}</div>
+                <div style="font-size:0.7rem; color:#888; margin-top:0.1rem;">
+                    $${(item.precio_unitario || 0).toLocaleString('es-CL')} c/u
+                    ${stockWarn}
+                </div>
+            </div>
+            <div style="display:flex; align-items:center; gap:0.3rem; flex-shrink:0;">
+                <button onclick="updatePackQty(${item.producto_id}, -1)"
+                    style="background:rgba(255,255,255,0.06); border:none; border-radius:4px; width:24px; height:24px;
+                           cursor:pointer; color:white; font-size:1rem; display:flex; align-items:center; justify-content:center;">−</button>
+                <span id="qty-${item.producto_id}" style="font-weight:700; font-size:0.95rem; min-width:24px; text-align:center;">${item.cantidad}</span>
+                <button onclick="updatePackQty(${item.producto_id}, 1)"
+                    style="background:rgba(255,255,255,0.06); border:none; border-radius:4px; width:24px; height:24px;
+                           cursor:pointer; color:white; font-size:1rem; display:flex; align-items:center; justify-content:center;">+</button>
+            </div>
+            <button onclick="removeProductFromPack(${item.producto_id})"
+                style="background:none; border:none; cursor:pointer; color:#555; font-size:1rem; padding:0; transition:0.2s; flex-shrink:0;"
+                onmouseover="this.style.color='#e74c3c'" onmouseout="this.style.color='#555'">✕</button>
+        `;
+        list.appendChild(div);
+    });
+}
+
+// Añadir un producto al contenido del pack
+window.addProductToPack = function (productoId) {
+    const prod = _packInventoryAll.find(p => p.id === productoId);
+    if (!prod) return;
+
+    const existing = _packContent.find(i => i.producto_id === productoId);
+    if (existing) {
+        existing.cantidad += 1;
+        const qtySpan = document.getElementById(`qty-${productoId}`);
+        if (qtySpan) qtySpan.textContent = existing.cantidad;
+    } else {
+        _packContent.push({
+            producto_id: productoId,
+            nombre: prod.nombre,
+            cantidad: 1,
+            precio_unitario: prod.precio_venta || 0,
+            costo_unitario: prod.costo_proveedor || 0,
+            stock: prod.stock,
+            stock_minimo: prod.stock_minimo || 5
+        });
+        _renderPackContent();
+    }
+
+    // Actualizar botón del inventario
+    const btn = document.querySelector(`#inv-item-${productoId} button`);
+    if (btn) {
+        btn.textContent = '✓';
+        btn.style.background = 'rgba(212,175,55,0.2)';
+        btn.style.color = 'var(--primary)';
+    }
+
+    recalcPackMetrics();
+}
+
+// Ajustar cantidad (+1 / -1)
+window.updatePackQty = function (productoId, delta) {
+    const item = _packContent.find(i => i.producto_id === productoId);
+    if (!item) return;
+
+    item.cantidad = Math.max(1, item.cantidad + delta);
+    const qtySpan = document.getElementById(`qty-${productoId}`);
+    if (qtySpan) qtySpan.textContent = item.cantidad;
+
+    recalcPackMetrics();
+}
+
+// Eliminar producto del pack
+window.removeProductFromPack = function (productoId) {
+    _packContent = _packContent.filter(i => i.producto_id !== productoId);
+    _renderPackContent();
+
+    // Restablecer botón del inventario
+    const btn = document.querySelector(`#inv-item-${productoId} button`);
+    if (btn) {
+        btn.textContent = '+';
+        btn.style.background = 'rgba(255,255,255,0.06)';
+        btn.style.color = 'white';
+    }
+
+    recalcPackMetrics();
+}
+
+// Recalcular métricas económicas del pack
+window.recalcPackMetrics = function () {
+    const precio = parseInt(document.getElementById('packPrice')?.value) || 0;
+    const costoEst = _packContent.reduce((s, i) => s + (i.costo_unitario || 0) * i.cantidad, 0);
+    const margen = precio - costoEst;
+    const pct = precio > 0 ? Math.round((margen / precio) * 100) : 0;
+
+    document.getElementById('pm_precio').textContent = `$${precio.toLocaleString('es-CL')}`;
+    document.getElementById('pm_costo').textContent = `$${costoEst.toLocaleString('es-CL')}`;
+    document.getElementById('pm_margen').textContent = `$${margen.toLocaleString('es-CL')}`;
+    document.getElementById('pm_margen').style.color = margen >= 0 ? '#2ecc71' : '#e74c3c';
+
+    const pctEl = document.getElementById('pm_pct');
+    pctEl.textContent = `${pct}%`;
+    pctEl.style.color = pct >= 30 ? '#2ecc71' : pct >= 15 ? '#f1c40f' : '#e74c3c';
+
+    // Barra de margen (0-100%)
+    const barWidth = Math.min(100, Math.max(0, pct));
+    document.getElementById('pm_bar').style.width = `${barWidth}%`;
+
+    let label = 'Sin datos';
+    if (precio > 0) {
+        label = pct >= 30 ? '✅ Margen saludable' : pct >= 15 ? '⚠️ Margen ajustado' : '🔴 Margen bajo — revisa el precio';
+    }
+    document.getElementById('pm_bar_label').textContent = label;
+}
+
+// Filtrar inventario por búsqueda
+window.filterPackInventory = function (query) {
+    const q = (query || '').toLowerCase().trim();
+    const filtered = q
+        ? _packInventoryAll.filter(p => p.nombre.toLowerCase().includes(q) || (p.categoria || '').toLowerCase().includes(q))
+        : _packInventoryAll;
+    _renderPackInventory(filtered);
+}
+
+// ----- GUARDAR PACK -----
+window.savePackForm = async function () {
+    const nombre = document.getElementById('packName').value.trim();
+    const precio = parseInt(document.getElementById('packPrice').value) || 0;
+
+    if (!nombre) {
+        showAdminToast('El nombre del pack es obligatorio.', 'error');
+        return;
+    }
+    if (precio <= 0) {
+        showAdminToast('El precio mensual debe ser mayor a 0.', 'error');
+        return;
+    }
+    if (_packContent.length === 0) {
+        showAdminToast('Agrega al menos un producto al pack.', 'error');
+        return;
+    }
+
+    const id = document.getElementById('packId').value;
+    const activo = document.getElementById('packActivo').checked;
+
+    // Guardar solo los campos necesarios en el JSONB
+    const contenido = _packContent.map(i => ({
+        producto_id: i.producto_id,
+        nombre: i.nombre,
+        cantidad: i.cantidad,
+        precio_unitario: i.precio_unitario,
+        costo_unitario: i.costo_unitario
+    }));
+
+    const packData = {
+        nombre,
+        precio_mensual: precio,
+        descripcion: document.getElementById('packDesc').value.trim(),
+        badge: document.getElementById('packBadge').value.trim() || null,
+        contenido,
+        activo,
+        orden: 0
+    };
+
+    if (id) packData.id = parseInt(id);
+
+    try {
+        await DataManager.savePack(packData);
+        showAdminToast(id ? 'Pack actualizado correctamente.' : 'Pack creado correctamente. Ya es visible en el sitio.');
+        closePackModal();
+        loadPacks();
+    } catch (err) {
+        console.error('Error al guardar pack:', err);
+        showAdminToast(`Error al guardar el pack: ${err.message || 'Error desconocido'}`, 'error');
+    }
+}
+
+// ----- EDITAR PACK -----
+window.editPack = async function (id) {
+    try {
+        const packs = await DataManager.getPacks();
+        const pack = packs.find(p => p.id === id);
+        if (!pack) { showAdminToast('Pack no encontrado.', 'error'); return; }
+        await openPackModal(pack);
+    } catch (err) {
+        console.error('Error al cargar pack:', err);
+        showAdminToast('Error al cargar el pack.', 'error');
+    }
+}
+
+// ----- ELIMINAR PACK -----
+window.deletePack = async function (id) {
+    if (!confirm('¿Eliminar este pack? Esta acción no se puede deshacer.\nLos suscriptores existentes no serán afectados.')) return;
+    try {
+        await DataManager.deletePack(id);
+        showAdminToast('Pack eliminado correctamente.');
+        loadPacks();
+    } catch (err) {
+        console.error('Error al eliminar pack:', err);
+        showAdminToast('Error al eliminar el pack.', 'error');
+    }
+}
+
+// ----- TOGGLE ACTIVO (desde tabla) -----
+window.togglePackActivo = async function (id, currentActivo) {
+    try {
+        await DataManager.savePack({ id, activo: !currentActivo });
+        showAdminToast(`Pack ${!currentActivo ? 'activado' : 'desactivado'} — ${!currentActivo ? 'ya es visible en el sitio' : 'oculto del sitio'}.`);
+        loadPacks();
+    } catch (err) {
+        console.error('Error al actualizar pack:', err);
+        showAdminToast('Error al actualizar el pack.', 'error');
+    }
+}
+
+// ----- INTEGRACIÓN PEDIDOS: Descuento de stock al marcar como enviado -----
+// Extender processOrder para descontar stock cuando estado cambia a 'enviado'
+const _originalProcessOrder = window.processOrder;
+window.processOrder = async function (orderId) {
+    if (_originalProcessOrder) return _originalProcessOrder(orderId);
 }
 
 // ===== CATEGORIAS CONTROLADORES (INTEGRADOS EN PRODUCTOS) =====

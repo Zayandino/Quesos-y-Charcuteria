@@ -599,6 +599,108 @@ const DataManager = {
             if (error) throw error;
             return result[0];
         }
+    },
+
+    // ===== PACKS DE SUSCRIPCIÓN =====
+    async getPacks() {
+        if (this.mode === 'local') {
+            return JSON.parse(localStorage.getItem('packs') || '[]');
+        } else {
+            const { data, error } = await this.supabase
+                .from('dcava_packs_suscripcion')
+                .select('*')
+                .order('id', { ascending: true });
+            if (error) throw error;
+            return (data || []).map(p => {
+                let contenido = p.contenido;
+                let badge = p.badge || null;
+                // Si el contenido viene en formato de objeto con items/badge
+                if (p.contenido && typeof p.contenido === 'object' && !Array.isArray(p.contenido)) {
+                    if (Array.isArray(p.contenido.items)) {
+                        contenido = p.contenido.items;
+                        if (!badge && p.contenido.badge) badge = p.contenido.badge;
+                    }
+                }
+                return {
+                    ...p,
+                    contenido,
+                    badge
+                };
+            });
+        }
+    },
+
+    async savePack(packData) {
+        const { id, badge, ...fields } = packData;
+        
+        // Empaquetar badge e items de forma segura en contenido JSONB
+        let contenidoToStore = fields.contenido;
+        if (Array.isArray(fields.contenido)) {
+            contenidoToStore = {
+                items: fields.contenido,
+                badge: badge || null,
+                updated_at: new Date().toISOString()
+            };
+        }
+
+        const payload = {
+            nombre: fields.nombre,
+            descripcion: fields.descripcion || '',
+            precio_mensual: fields.precio_mensual,
+            contenido: contenidoToStore,
+            activo: fields.activo !== undefined ? fields.activo : true
+        };
+
+        if (this.mode === 'local') {
+            const packs = JSON.parse(localStorage.getItem('packs') || '[]');
+            if (id) {
+                const idx = packs.findIndex(p => p.id === id);
+                if (idx !== -1) {
+                    packs[idx] = { ...packs[idx], ...payload, id, badge, updated_at: new Date().toISOString() };
+                    localStorage.setItem('packs', JSON.stringify(packs));
+                    return packs[idx];
+                }
+            }
+            const newPack = { id: Date.now(), ...payload, badge, created_at: new Date().toISOString() };
+            packs.push(newPack);
+            localStorage.setItem('packs', JSON.stringify(packs));
+            return newPack;
+        } else {
+            if (id) {
+                const { data, error } = await this.supabase
+                    .from('dcava_packs_suscripcion')
+                    .update(payload)
+                    .eq('id', id)
+                    .select()
+                    .single();
+                if (error) throw error;
+                return { ...data, badge };
+            } else {
+                const { data, error } = await this.supabase
+                    .from('dcava_packs_suscripcion')
+                    .insert([payload])
+                    .select()
+                    .single();
+                if (error) throw error;
+                return { ...data, badge };
+            }
+        }
+    },
+
+    async deletePack(id) {
+        if (this.mode === 'local') {
+            let packs = JSON.parse(localStorage.getItem('packs') || '[]');
+            packs = packs.filter(p => p.id !== id);
+            localStorage.setItem('packs', JSON.stringify(packs));
+            return true;
+        } else {
+            const { error } = await this.supabase
+                .from('dcava_packs_suscripcion')
+                .delete()
+                .eq('id', id);
+            if (error) throw error;
+            return true;
+        }
     }
 };
 

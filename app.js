@@ -24,11 +24,15 @@ document.addEventListener('DOMContentLoaded', async () => {
         setupEventListeners();
         setupFooterEventListeners();
 
-        // Inicializar datos de ejemplo si no existen (puede fallar por RLS)
+        // Inicializar datos de ejemplo solo si Supabase está disponible
         try {
-            await initializeSampleData();
+            if (DataManager && DataManager.supabase) {
+                await initializeSampleData();
+            } else {
+                console.warn('⚠️ Supabase no disponible, omitiendo inicialización de datos de ejemplo');
+            }
         } catch (e) {
-            console.warn('⚠️ No se pudo inicializar datos de ejemplo (posible RLS):', e.message);
+            console.warn('⚠️ No se pudo inicializar datos de ejemplo (posible RLS o servidor caído):', e.message);
         }
 
         // Cargar productores, productos y filtros dinámicos de categorías
@@ -72,30 +76,40 @@ function setupScrollEffects() {
 function setupAnimations() {
     // Intersection Observer para animaciones de entrada
     const observerOptions = {
-        threshold: 0.1,
-        rootMargin: '0px 0px -50px 0px'
+        threshold: 0.05,
+        rootMargin: '0px 0px -30px 0px'
     };
 
     const observer = new IntersectionObserver((entries) => {
         entries.forEach(entry => {
             if (entry.isIntersecting) {
-                // Si es un elemento con data-reveal
+                // Si es un elemento con data-reveal, agregar clase CSS
                 if (entry.target.hasAttribute('data-reveal')) {
                     entry.target.classList.add('active');
                 } else {
-                    // Fallback para las secciones antiguas
+                    // Secciones generales: quitar estilos inline para que sean visibles
                     entry.target.style.opacity = '1';
                     entry.target.style.transform = 'translateY(0)';
+                    entry.target.classList.add('section-revealed');
                 }
+                // Una vez visible, dejar de observar para no crear bucles
+                observer.unobserve(entry.target);
             }
         });
     }, observerOptions);
 
-    // Observar secciones antiguas
+    // IMPORTANTE: NO aplicar opacity:0 si el usuario ya está en esa sección
+    // Solo aplicar la animación si la sección está fuera del viewport
     document.querySelectorAll('.productores, .suscripciones, .catalogo, .contacto').forEach(section => {
-        section.style.opacity = '0';
-        section.style.transform = 'translateY(30px)';
-        section.style.transition = 'opacity 0.8s ease-out, transform 0.8s ease-out';
+        const rect = section.getBoundingClientRect();
+        const isAlreadyVisible = rect.top < window.innerHeight && rect.bottom > 0;
+        
+        if (!isAlreadyVisible) {
+            // Solo aplicar la animación si la sección NO está visible aún
+            section.style.opacity = '0';
+            section.style.transform = 'translateY(30px)';
+            section.style.transition = 'opacity 0.8s ease-out, transform 0.8s ease-out';
+        }
         observer.observe(section);
     });
 
@@ -103,6 +117,20 @@ function setupAnimations() {
     document.querySelectorAll('[data-reveal]').forEach(el => {
         observer.observe(el);
     });
+
+    // Seguridad adicional: después de 3 segundos, forzar visibilidad de todas las secciones
+    // para evitar que queden en negro si el observer nunca dispara
+    setTimeout(() => {
+        document.querySelectorAll('.productores, .suscripciones, .catalogo, .contacto').forEach(section => {
+            if (section.style.opacity === '0') {
+                section.style.opacity = '1';
+                section.style.transform = 'translateY(0)';
+            }
+        });
+        document.querySelectorAll('[data-reveal]').forEach(el => {
+            el.classList.add('active');
+        });
+    }, 3000);
 }
 
 // ===== INICIALIZAR DATOS DE EJEMPLO =====
@@ -1305,6 +1333,10 @@ window.showToast = showToast;
 
 // ===== FUNCIONES FOOTER =====
 async function loadFooterConfig() {
+    // Número de WhatsApp de respaldo si Supabase no responde
+    const WHATSAPP_FALLBACK = '56912345678';
+    const EMAIL_FALLBACK = 'hola@dcava.cl';
+
     try {
         const [instagram, facebook, whatsapp, email] = await Promise.all([
             DataManager.getConfig('instagram_url'),
@@ -1318,24 +1350,39 @@ async function loadFooterConfig() {
             const links = socialContainer.querySelectorAll('.social-icon');
             if (instagram && links[0]) links[0].href = instagram;
             if (facebook && links[1]) links[1].href = facebook;
-            if (whatsapp && links[2]) links[2].href = `https://wa.me/${whatsapp.replace(/\+/g, '')}`;
+            const waNum = whatsapp || WHATSAPP_FALLBACK;
+            if (links[2]) links[2].href = `https://wa.me/${waNum.replace(/\+/g, '')}`;
         }
 
-        // Cargar también en la barra lateral de contacto en index.html
+        // Cargar en barra lateral de contacto
         const contactWhatsapp = document.getElementById('contactWhatsapp');
-        if (contactWhatsapp && whatsapp) {
-            contactWhatsapp.href = `https://wa.me/${whatsapp.replace(/\+/g, '')}`;
-            contactWhatsapp.textContent = whatsapp;
+        if (contactWhatsapp) {
+            const waNum = whatsapp || WHATSAPP_FALLBACK;
+            contactWhatsapp.href = `https://wa.me/${waNum.replace(/\+/g, '')}`;
+            contactWhatsapp.textContent = whatsapp || `+${WHATSAPP_FALLBACK}`;
             contactWhatsapp.target = '_blank';
         }
 
         const contactEmail = document.getElementById('contactEmail');
-        if (contactEmail && email) {
-            contactEmail.href = `mailto:${email}`;
-            contactEmail.textContent = email;
+        if (contactEmail) {
+            const em = email || EMAIL_FALLBACK;
+            contactEmail.href = `mailto:${em}`;
+            contactEmail.textContent = em;
         }
     } catch (e) {
-        console.warn('⚠️ No se pudo cargar la configuración de redes sociales o contacto:', e.message);
+        console.warn('⚠️ No se pudo cargar la configuración de contacto, usando valores de respaldo:', e.message);
+        // Aplicar valores de respaldo para evitar "Cargando..." permanente
+        const contactWhatsapp = document.getElementById('contactWhatsapp');
+        if (contactWhatsapp) {
+            contactWhatsapp.href = `https://wa.me/${WHATSAPP_FALLBACK}`;
+            contactWhatsapp.textContent = `+${WHATSAPP_FALLBACK}`;
+            contactWhatsapp.target = '_blank';
+        }
+        const contactEmail = document.getElementById('contactEmail');
+        if (contactEmail) {
+            contactEmail.href = `mailto:${EMAIL_FALLBACK}`;
+            contactEmail.textContent = EMAIL_FALLBACK;
+        }
     }
 }
 

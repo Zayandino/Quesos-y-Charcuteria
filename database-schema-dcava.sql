@@ -353,3 +353,20 @@ COMMENT ON TABLE dcava_inventario_movimientos IS 'Historial de movimientos de in
 COMMENT ON TABLE dcava_cupones IS 'Cupones de descuento';
 COMMENT ON TABLE dcava_configuracion IS 'Configuración general del sistema';
 COMMENT ON TABLE dcava_logs_actividad IS 'Log de actividad de usuarios del sistema';
+
+-- ===== MIGRACIÓN v2.5: PACKS MEJORADOS =====
+-- Ejecutar solo si no existen las columnas
+
+ALTER TABLE dcava_packs_suscripcion
+  ADD COLUMN IF NOT EXISTS imagen_url TEXT,
+  ADD COLUMN IF NOT EXISTS orden INTEGER DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS precio_original INTEGER,
+  ADD COLUMN IF NOT EXISTS badge VARCHAR(100);
+
+-- Índice para ordenar packs por posición
+CREATE INDEX IF NOT EXISTS idx_dcava_packs_orden ON dcava_packs_suscripcion(orden, activo);
+
+-- Política pública de lectura para packs activos (ya existe, verificar)
+-- Los packs activos son visibles en el sitio sin autenticación
+-- Los inactivos solo los ve el admin
+

@@ -12,6 +12,9 @@
         href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600&family=Playfair+Display:ital,wght@0,400;0,600;1,400&display=swap"
         rel="stylesheet">
 
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
     <!-- Estilos -->
     <link rel="stylesheet" href="styles.css">
     <style>
@@ -380,8 +383,9 @@
             <nav>
                 <a class="nav-item active" onclick="showSection('dashboard')">📊 Dashboard</a>
                 <a class="nav-item" onclick="showSection('products')">🧀 Productos</a>
+                <a class="nav-item" onclick="showSection('packs')">📦 Packs</a>
                 <a class="nav-item" onclick="showSection('subscribers')">👥 Suscriptores</a>
-                <a class="nav-item" onclick="showSection('orders')">📦 Pedidos</a>
+                <a class="nav-item" onclick="showSection('orders')">🛒 Pedidos</a>
                 <a class="nav-item" onclick="showSection('configuracion')">⚙️ Configuración</a>
                 <a class="nav-item" onclick="logout()" style="margin-top: 2rem; color: #e74c3c;">🚪 Cerrar Sesión</a>
                 <div
@@ -483,6 +487,37 @@
                 </div>
             </section>
 
+
+            <!-- Packs Section -->
+            <section id="packs" class="content-section" style="display: none;">
+                <div class="admin-header">
+                    <h2>📦 Packs de Suscripción</h2>
+                    <button class="btn btn-primary btn-sm" onclick="openPackModal()">+ Nuevo Pack</button>
+                </div>
+
+                <!-- Alertas de Stock Crítico -->
+                <div id="packStockAlerts" style="margin-bottom: 1.5rem;"></div>
+
+                <!-- Tabla de Packs -->
+                <div class="data-table">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Pack</th>
+                                <th>Precio / mes</th>
+                                <th>Productos</th>
+                                <th>Costo Est.</th>
+                                <th>Margen</th>
+                                <th>Estado</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="packsTableBody">
+                            <!-- JS Generated -->
+                        </tbody>
+                    </table>
+                </div>
+            </section>
 
             <!-- Orders Section -->
             <section id="orders" class="content-section" style="display: none;">
@@ -739,9 +774,10 @@
                 </form>
             </div>
         </div>
+    </div>
 
-        <!-- Subscriber Modal -->
-        <div class="modal" id="subscriberModal">
+    <!-- Subscriber Modal -->
+    <div class="modal" id="subscriberModal">
             <div class="modal-form" style="width: 500px;">
                 <div class="modal-header-simple"
                     style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
@@ -894,11 +930,178 @@
             </div>
         </div>
 
-        <!-- SUPABASE & SCRIPTS -->
-        <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-        <script src="config.js"></script>
-        <script src="data-manager_v2.js?v=2.4.0"></script>
-        <script src="admin_v2.js?v=2.4.0"></script>
+    <!-- ==========================================
+         PACK BUILDER MODAL
+    ========================================== -->
+    <div class="modal" id="packModal" style="background-color: rgba(5, 5, 5, 0.9); backdrop-filter: blur(14px);">
+        <div id="packModalBox" style="
+            width: 900px; max-width: 96%; max-height: 92vh;
+            background: #181818; border: 1px solid rgba(212,175,55,0.3);
+            border-radius: 18px; box-shadow: 0 40px 80px rgba(0,0,0,0.8);
+            overflow: hidden; display: flex; flex-direction: column;
+            animation: slideUp 0.3s ease;
+        ">
+            <!-- Header -->
+            <div style="display:flex; justify-content:space-between; align-items:center;
+                padding: 1.6rem 2.2rem; border-bottom: 1px solid rgba(255,255,255,0.07);
+                background: #1e1e1e; flex-shrink: 0;">
+                <div>
+                    <h3 id="packModalTitle" style="margin:0; font-family:'Playfair Display',serif; color:white; font-size:1.35rem;">📦 Nuevo Pack</h3>
+                    <p style="margin:0.3rem 0 0; font-size:0.78rem; color:#888;">Arrastra productos del inventario para armar el contenido del pack</p>
+                </div>
+                <button onclick="closePackModal()" style="background:none;border:none;font-size:1.8rem;cursor:pointer;color:#888;line-height:1;transition:0.2s;"
+                    onmouseover="this.style.color='white'" onmouseout="this.style.color='#888'">&times;</button>
+            </div>
+
+            <!-- Body scrollable -->
+            <div style="overflow-y:auto; flex:1; padding: 2rem 2.2rem;">
+
+                <!-- Fila 1: Datos básicos del pack -->
+                <input type="hidden" id="packId">
+                <div style="display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 1.5rem; margin-bottom: 2rem;">
+                    <div class="form-group" style="margin:0;">
+                        <label class="form-label" style="font-size:0.78rem; text-transform:uppercase; letter-spacing:.06em; margin-bottom:.5rem;">Nombre del Pack</label>
+                        <input type="text" id="packName" class="form-control" placeholder="Ej: Pack Descubrimiento"
+                            style="border-radius:8px; border:1px solid rgba(255,255,255,0.1); background:#0f0f0f; font-weight:600;" required>
+                    </div>
+                    <div class="form-group" style="margin:0;">
+                        <label class="form-label" style="font-size:0.78rem; text-transform:uppercase; letter-spacing:.06em; margin-bottom:.5rem;">Precio Mensual ($)</label>
+                        <input type="number" id="packPrice" class="form-control" placeholder="29990" min="0"
+                            style="border-radius:8px; border:1px solid rgba(255,255,255,0.1); background:#0f0f0f; font-weight:600;"
+                            oninput="recalcPackMetrics()" required>
+                    </div>
+                    <div class="form-group" style="margin:0;">
+                        <label class="form-label" style="font-size:0.78rem; text-transform:uppercase; letter-spacing:.06em; margin-bottom:.5rem;">Badge (opcional)</label>
+                        <input type="text" id="packBadge" class="form-control" placeholder="Ej: MÁS POPULAR"
+                            style="border-radius:8px; border:1px solid rgba(255,255,255,0.1); background:#0f0f0f;">
+                    </div>
+                </div>
+
+                <!-- Constructor: 2 columnas -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.8rem;">
+
+                    <!-- Columna Izquierda: Inventario -->
+                    <div>
+                        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:1rem;">
+                            <h4 style="margin:0; color:#ccc; font-size:0.9rem; text-transform:uppercase; letter-spacing:.07em;">🧀 Inventario</h4>
+                            <div style="display:flex; gap:0.5rem; align-items:center;">
+                                <span style="font-size:0.7rem; color:#2ecc71;">🟢 Ok</span>
+                                <span style="font-size:0.7rem; color:#f1c40f;">🟡 Bajo</span>
+                                <span style="font-size:0.7rem; color:#e74c3c;">🔴 Crítico</span>
+                            </div>
+                        </div>
+
+                        <!-- Buscador de inventario -->
+                        <input type="text" id="packInventorySearch" class="form-control"
+                            placeholder="🔍 Buscar producto..."
+                            oninput="filterPackInventory(this.value)"
+                            style="border-radius:8px; border:1px solid rgba(255,255,255,0.08); background:#0f0f0f;
+                                   margin-bottom:0.8rem; font-size:0.88rem; padding:0.7rem 1rem;">
+
+                        <!-- Lista de inventario -->
+                        <div id="packInventoryList"
+                            style="max-height: 340px; overflow-y: auto; display:flex; flex-direction:column; gap:0.5rem;
+                                   scrollbar-width: thin; scrollbar-color: rgba(212,175,55,0.3) transparent;">
+                            <div style="text-align:center; padding:2rem; color:#555;">Cargando inventario...</div>
+                        </div>
+                    </div>
+
+                    <!-- Columna Derecha: Contenido del Pack + Métricas -->
+                    <div style="display:flex; flex-direction:column; gap:1.2rem;">
+
+                        <!-- Contenido del Pack -->
+                        <div>
+                            <h4 style="margin:0 0 1rem; color:#ccc; font-size:0.9rem; text-transform:uppercase; letter-spacing:.07em;">🛒 Contenido del Pack</h4>
+                            <div id="packContentList"
+                                style="min-height:100px; max-height:240px; overflow-y:auto; display:flex; flex-direction:column; gap:0.5rem;
+                                       scrollbar-width: thin; scrollbar-color: rgba(212,175,55,0.3) transparent;">
+                                <div id="packContentEmpty" style="text-align:center; padding:2rem; color:#444; border:2px dashed rgba(255,255,255,0.06); border-radius:10px; font-size:0.85rem;">
+                                    Agrega productos desde el inventario →
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Panel de métricas en tiempo real -->
+                        <div style="background: #111; border-radius:12px; border:1px solid rgba(255,255,255,0.07); padding:1.2rem;">
+                            <div style="font-size:0.72rem; text-transform:uppercase; letter-spacing:.08em; color:#666; margin-bottom:1rem;">Análisis Económico</div>
+                            <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.8rem;">
+                                <div style="text-align:center;">
+                                    <div style="font-size:0.7rem; color:#888; text-transform:uppercase; margin-bottom:0.3rem;">Precio Pack</div>
+                                    <div id="pm_precio" style="font-size:1.3rem; font-weight:700; color:var(--primary);">$0</div>
+                                </div>
+                                <div style="text-align:center;">
+                                    <div style="font-size:0.7rem; color:#888; text-transform:uppercase; margin-bottom:0.3rem;">Costo Estimado</div>
+                                    <div id="pm_costo" style="font-size:1.3rem; font-weight:700; color:#e74c3c;">$0</div>
+                                </div>
+                                <div style="text-align:center;">
+                                    <div style="font-size:0.7rem; color:#888; text-transform:uppercase; margin-bottom:0.3rem;">Margen Bruto</div>
+                                    <div id="pm_margen" style="font-size:1.3rem; font-weight:700; color:#2ecc71;">$0</div>
+                                </div>
+                                <div style="text-align:center; position:relative;">
+                                    <div style="font-size:0.7rem; color:#888; text-transform:uppercase; margin-bottom:0.3rem;">% Margen</div>
+                                    <div id="pm_pct" style="font-size:1.3rem; font-weight:700;">0%</div>
+                                </div>
+                            </div>
+                            <!-- Barra de margen -->
+                            <div style="margin-top:1rem; height:6px; background:rgba(255,255,255,0.06); border-radius:10px; overflow:hidden;">
+                                <div id="pm_bar" style="height:100%; width:0%; background:linear-gradient(90deg,#e74c3c,#f1c40f,#2ecc71); border-radius:10px; transition:width 0.4s ease;"></div>
+                            </div>
+                            <div id="pm_bar_label" style="font-size:0.68rem; color:#555; margin-top:.4rem; text-align:right;">Sin datos</div>
+                        </div>
+
+                        <!-- Descripción / Beneficios -->
+                        <div class="form-group" style="margin:0;">
+                            <label class="form-label" style="font-size:0.78rem; text-transform:uppercase; letter-spacing:.06em; margin-bottom:.5rem;">Descripción del Pack</label>
+                            <textarea id="packDesc" class="form-control" rows="3"
+                                placeholder="Ej: Selección artesanal ideal para descubrir sabores únicos..."
+                                style="border-radius:8px; border:1px solid rgba(255,255,255,0.1); background:#0f0f0f; resize:vertical;"></textarea>
+                        </div>
+
+                        <!-- Toggle activo -->
+                        <div style="display:flex; align-items:center; gap:1rem; background:rgba(255,255,255,0.02); border-radius:8px; padding:0.9rem 1.2rem; border:1px solid rgba(255,255,255,0.06);">
+                            <span style="font-size:0.85rem; color:#ccc; flex:1;">Visible en el sitio web</span>
+                            <label style="position:relative; width:44px; height:24px; cursor:pointer;">
+                                <input type="checkbox" id="packActivo" checked
+                                    style="opacity:0; width:0; height:0; position:absolute;"
+                                    onchange="document.getElementById('packActivoKnob').style.left=this.checked?'22px':'2px'; document.getElementById('packActivoBg').style.background=this.checked?'var(--primary)':'rgba(255,255,255,0.15)';">
+                                <div id="packActivoBg" style="position:absolute; inset:0; border-radius:24px; background:var(--primary); transition:.3s;"></div>
+                                <div id="packActivoKnob" style="position:absolute; top:2px; left:22px; width:20px; height:20px; background:white; border-radius:50%; transition:.3s; box-shadow:0 2px 4px rgba(0,0,0,0.4);"></div>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Footer con acciones -->
+            <div style="display:flex; justify-content:flex-end; gap:1rem;
+                padding:1.4rem 2.2rem; border-top:1px solid rgba(255,255,255,0.07);
+                background:#1a1a1a; flex-shrink:0;">
+                <button class="btn btn-secondary" onclick="closePackModal()" style="border-radius:8px; padding:0.7rem 1.8rem;">Cancelar</button>
+                <button class="btn btn-primary" onclick="savePackForm()" style="border-radius:8px; padding:0.7rem 2.2rem; font-weight:700;">💾 Guardar Pack</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Order Details Modal -->
+    <div class="modal" id="orderDetailsModal" style="background-color:rgba(10,10,10,0.85);backdrop-filter:blur(12px);">
+        <div class="modal-form" style="width:580px;background:#1a1a1a;border:1px solid rgba(212,175,55,0.25);border-radius:16px;padding:0;box-shadow:0 30px 70px rgba(0,0,0,0.7);">
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:1.8rem 2.5rem;border-bottom:1px solid rgba(255,255,255,0.06);background:#1e1e1e;border-radius:16px 16px 0 0;">
+                <h3 style="margin:0;color:white;font-size:1.3rem;font-family:'Playfair Display',serif;letter-spacing:0.02em;">Detalle del Pedido</h3>
+                <button onclick="closeOrderDetailsModal()" style="background:none;border:none;font-size:1.8rem;cursor:pointer;color:#888;line-height:1;transition:0.2s;" onmouseover="this.style.color='white'" onmouseout="this.style.color='#888'">&times;</button>
+            </div>
+            <div id="orderDetailsContent" style="padding:2rem;display:flex;flex-direction:column;gap:1.2rem;max-height:58vh;overflow-y:auto;"></div>
+            <div style="padding:1.2rem 2rem;border-top:1px solid rgba(255,255,255,0.05);display:flex;justify-content:flex-end;gap:1rem;background:#1a1a1a;border-radius:0 0 16px 16px;">
+                <button class="btn btn-secondary" onclick="closeOrderDetailsModal()" style="border-radius:8px;">Cerrar</button>
+                <button class="btn btn-primary" id="markOrderPaidBtn" style="display:none;border-radius:8px;">Marcar como Pagado</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- SUPABASE & SCRIPTS -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="config.js"></script>
+    <script src="data-manager_v2.js?v=2.5.0"></script>
+    <script src="admin_v2.js?v=2.5.0"></script>
         <!-- Fallback garantizado para el modal de categorías -->
         <script>
             // Este script se ejecuta DESPUÉS de cargar admin_v2.js
