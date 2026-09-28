@@ -32,6 +32,29 @@
 </head>
 
 <body>
+    <!-- Overlay Modo Mantenimiento / En Construcción -->
+    <div class="maintenance-overlay" id="maintenanceOverlay" style="display: none;">
+        <div class="maintenance-card">
+            <div class="maintenance-badge">🔒 Modo Mantenimiento</div>
+            <a href="#" class="logo maintenance-logo">D<span>CAVA</span></a>
+            <h1 class="maintenance-title">Estamos perfeccionando nuestra cava digital</h1>
+            <p class="maintenance-lead">Regresaremos muy pronto con la selección más exclusiva de quesos artesanales y charcutería gourmet de Chile.</p>
+
+            <div class="maintenance-box">
+                <h4>Sé el primero en enterarte de la reapertura</h4>
+                <form class="maintenance-form" id="maintenanceForm" onsubmit="event.preventDefault(); alert('¡Gracias! Te avisaremos apenas abramos las puertas.');">
+                    <input type="email" placeholder="Tu correo electrónico" required>
+                    <button type="submit" class="btn btn-primary">Notificarme</button>
+                </form>
+            </div>
+
+            <div class="maintenance-footer">
+                <span>© 2026 DCAVA. Todos los derechos reservados.</span>
+                <a href="admin-login.html" class="maintenance-admin-link">Acceso Staff &rarr;</a>
+            </div>
+        </div>
+    </div>
+
     <!-- Header -->
     <header class="header" id="header">
         <div class="header-container">
@@ -721,14 +744,6 @@
                         <input type="password" id="loginPassword" placeholder="••••••••" required>
                     </div>
                     <button type="submit" class="btn btn-primary btn-block">Entrar</button>
-
-                    <div class="auth-divider">
-                        <span>O</span>
-                    </div>
-
-                    <a href="admin.html" class="btn btn-secondary btn-block admin-access-btn">
-                        💼 Acceso Administrador
-                    </a>
                 </form>
 
                 <!-- Formulario Registro -->

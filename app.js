@@ -20,6 +20,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         // Inicializar selector de tema (Modo Claro / Oscuro)
         initThemeToggle();
 
+        // Verificar si el sitio está en Modo Mantenimiento
+        checkMaintenanceMode();
+
         // Inicializar el Armador de Tabla de forma inmediata
         initArmadorTabla();
 
@@ -495,6 +498,23 @@ function updateThemeIcon() {
     }
     if (label) {
         label.textContent = isLight ? 'Modo Oscuro' : 'Modo Claro';
+    }
+}
+
+// ===== MODO MANTENIMIENTO / EN CONSTRUCCIÓN =====
+function checkMaintenanceMode() {
+    const isMaintenance = localStorage.getItem('dcava_maintenance_mode') === 'true';
+    const isAdminBypass = localStorage.getItem('dcava_admin_bypass') === 'true';
+
+    const overlay = document.getElementById('maintenanceOverlay');
+    if (!overlay) return;
+
+    if (isMaintenance && !isAdminBypass) {
+        overlay.style.display = 'flex';
+        document.body.classList.add('no-scroll');
+    } else {
+        overlay.style.display = 'none';
+        document.body.classList.remove('no-scroll');
     }
 }
 

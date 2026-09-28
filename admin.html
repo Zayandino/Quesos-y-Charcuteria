@@ -402,7 +402,12 @@
             <section id="dashboard" class="content-section">
                 <div class="admin-header">
                     <h2>Resumen General</h2>
-                    <span class="status-badge status-active">Sistema en Línea</span>
+                    <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                        <button id="toggleMaintenanceBtn" class="btn btn-secondary" onclick="toggleMaintenanceMode()" style="padding: 8px 16px; font-size: 0.85rem; border-radius: 20px; font-weight: 600; cursor: pointer; transition: all 0.25s ease;">
+                            Modo Mantenimiento: <span id="maintenanceStatusText">DESACTIVADO 🔓</span>
+                        </button>
+                        <span class="status-badge status-active">Sistema en Línea</span>
+                    </div>
                 </div>
 
                 <div class="stat-cards">
@@ -1129,7 +1134,39 @@
                     };
                 }
                 console.log('✅ Modal categorías listo. openCategoriesManagementModal:', typeof window.openCategoriesManagementModal);
+                initMaintenanceToggle();
             });
+
+            function initMaintenanceToggle() {
+                const isMaint = localStorage.getItem('dcava_maintenance_mode') === 'true';
+                updateMaintenanceBtnUI(isMaint);
+            }
+
+            function toggleMaintenanceMode() {
+                const current = localStorage.getItem('dcava_maintenance_mode') === 'true';
+                const next = !current;
+                localStorage.setItem('dcava_maintenance_mode', next ? 'true' : 'false');
+                updateMaintenanceBtnUI(next);
+                alert(next ? '🔒 Modo Mantenimiento ACTIVADO. Los visitantes verán la pantalla de En Construcción.' : '🔓 Modo Mantenimiento DESACTIVADO. La tienda vuelve a estar abierta al público.');
+            }
+
+            function updateMaintenanceBtnUI(isMaint) {
+                const btn = document.getElementById('toggleMaintenanceBtn');
+                const text = document.getElementById('maintenanceStatusText');
+                if (!btn || !text) return;
+
+                if (isMaint) {
+                    text.textContent = 'ACTIVADO 🔒';
+                    btn.style.borderColor = '#ff6b6b';
+                    btn.style.color = '#ff6b6b';
+                    btn.style.background = 'rgba(255, 107, 107, 0.15)';
+                } else {
+                    text.textContent = 'DESACTIVADO 🔓';
+                    btn.style.borderColor = 'var(--primary)';
+                    btn.style.color = 'var(--primary)';
+                    btn.style.background = 'transparent';
+                }
+            }
         </script>
 </body>
 
