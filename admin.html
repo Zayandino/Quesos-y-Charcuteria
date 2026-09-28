@@ -387,9 +387,10 @@
                 <a class="nav-item" onclick="showSection('subscribers')">👥 Suscriptores</a>
                 <a class="nav-item" onclick="showSection('orders')">🛒 Pedidos</a>
                 <a class="nav-item" onclick="showSection('configuracion')">⚙️ Configuración</a>
-                <a class="nav-item" onclick="logout()" style="margin-top: 2rem; color: #e74c3c;">🚪 Cerrar Sesión</a>
+                <a href="index.html" class="nav-item" style="margin-top: 1.5rem; color: var(--primary); border: 1px solid var(--border); text-decoration: none;" title="Abrir sitio web oficial">🌐 Ver Sitio Web</a>
+                <a class="nav-item" onclick="logout()" style="margin-top: 0.5rem; color: #e74c3c;">🚪 Cerrar Sesión</a>
                 <div
-                    style="margin-top: 5rem; padding: 1rem; border-top: 1px solid rgba(255,255,255,0.05); font-size: 0.7rem; color: var(--primary); font-weight: bold; text-align: center;">
+                    style="margin-top: 4rem; padding: 1rem; border-top: 1px solid rgba(255,255,255,0.05); font-size: 0.7rem; color: var(--primary); font-weight: bold; text-align: center;">
                     SISTEMA v2.2.0 - DCAVA
                 </div>
             </nav>
@@ -403,6 +404,9 @@
                 <div class="admin-header">
                     <h2>Resumen General</h2>
                     <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                        <a href="index.html" class="btn btn-secondary" style="padding: 8px 16px; font-size: 0.85rem; border-radius: 20px; font-weight: 600; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;">
+                            🌐 Ver Sitio Oficial
+                        </a>
                         <button id="toggleMaintenanceBtn" class="btn btn-secondary" onclick="toggleMaintenanceMode()" style="padding: 8px 16px; font-size: 0.85rem; border-radius: 20px; font-weight: 600; cursor: pointer; transition: all 0.25s ease;">
                             Modo Mantenimiento: <span id="maintenanceStatusText">DESACTIVADO 🔓</span>
                         </button>
