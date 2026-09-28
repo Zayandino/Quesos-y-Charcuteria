@@ -466,23 +466,57 @@ function initThemeToggle() {
     }
     updateThemeIcon();
 
-    toggleBtn.addEventListener('click', () => {
+    toggleBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
         document.body.classList.toggle('light-mode');
         const isLight = document.body.classList.contains('light-mode');
         localStorage.setItem('dcava_theme', isLight ? 'light' : 'dark');
         updateThemeIcon();
     });
+
+    setupNavClickHandlers();
 }
 
 function updateThemeIcon() {
-    const icon = document.getElementById('themeIcon');
-    if (!icon) return;
+    const sunIcon = document.getElementById('themeIconSun');
+    const moonIcon = document.getElementById('themeIconMoon');
+    const label = document.getElementById('themeToggleLabel');
     const isLight = document.body.classList.contains('light-mode');
-    if (isLight) {
-        icon.className = 'fa-solid fa-moon';
-    } else {
-        icon.className = 'fa-solid fa-sun';
+
+    if (sunIcon && moonIcon) {
+        if (isLight) {
+            sunIcon.style.display = 'none';
+            moonIcon.style.display = 'inline-flex';
+        } else {
+            sunIcon.style.display = 'inline-flex';
+            moonIcon.style.display = 'none';
+        }
     }
+    if (label) {
+        label.textContent = isLight ? 'Modo Oscuro' : 'Modo Claro';
+    }
+}
+
+function setupNavClickHandlers() {
+    document.querySelectorAll('.nav-link[href^="#"]').forEach(link => {
+        link.addEventListener('click', (e) => {
+            const targetId = link.getAttribute('href');
+            if (targetId && targetId !== '#') {
+                const targetSec = document.querySelector(targetId);
+                if (targetSec) {
+                    targetSec.style.opacity = '1';
+                    targetSec.style.transform = 'translateY(0)';
+                    targetSec.classList.add('active', 'section-revealed');
+                    targetSec.querySelectorAll('[data-reveal]').forEach(el => {
+                        el.classList.add('active');
+                        el.style.opacity = '1';
+                        el.style.transform = 'translateY(0)';
+                    });
+                }
+            }
+        });
+    });
 }
 
 // ===== CARGAR FILTROS DINÁMICOS =====
