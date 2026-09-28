@@ -1884,3 +1884,128 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
     70% { transform: scale(1.06); box-shadow: 0 0 0 14px rgba(37, 211, 102, 0); }
     100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(37, 211, 102, 0); }
 }
+
+/* ===== BOTÓN CAMBIO DE TEMA (MODO CLARO / OSCURO) ===== */
+.theme-toggle-btn {
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    color: var(--gold);
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 1rem;
+    transition: var(--transition);
+}
+
+.theme-toggle-btn:hover {
+    background: rgba(198, 167, 94, 0.25);
+    transform: scale(1.1);
+    border-color: var(--gold);
+}
+
+/* ===== DEFINICIÓN DE MODO CLARO (LIGHT MODE) ===== */
+body.light-mode {
+    --bg-main: #FAF8F5;
+    --bg-card: #FFFFFF;
+    --text-main: #1C1917;
+    --text-muted: #6B655F;
+    --gold: #A17424;
+    --gold-gradient: linear-gradient(135deg, #A17424 0%, #C9A050 50%, #A17424 100%);
+    --border: rgba(0, 0, 0, 0.08);
+    background-color: #FAF8F5 !important;
+    color: #1C1917 !important;
+}
+
+body.light-mode .header.scrolled {
+    background: rgba(250, 248, 245, 0.94) !important;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.08) !important;
+}
+
+body.light-mode .nav-link,
+body.light-mode .account-btn,
+body.light-mode .cart-btn {
+    color: #2D2926 !important;
+}
+
+body.light-mode .theme-toggle-btn {
+    background: rgba(0, 0, 0, 0.05) !important;
+    border-color: rgba(0, 0, 0, 0.12) !important;
+    color: #A17424 !important;
+}
+
+body.light-mode .hero {
+    background: #FAF8F5 !important;
+}
+
+body.light-mode .hero-title,
+body.light-mode .hero-lead,
+body.light-mode .feature-item span,
+body.light-mode .product-name,
+body.light-mode .pack-name,
+body.light-mode .pack-includes li,
+body.light-mode .section-title,
+body.light-mode .manifesto-lead,
+body.light-mode h1, body.light-mode h2, body.light-mode h3, body.light-mode h4 {
+    color: #1C1917 !important;
+}
+
+body.light-mode .product-card,
+body.light-mode .stat-card,
+body.light-mode .data-table,
+body.light-mode .modal-form,
+body.light-mode .modal-content,
+body.light-mode .contacto-sidebar .info-card,
+body.light-mode .contacto-form-container,
+body.light-mode .builder-summary-card,
+body.light-mode .value-card {
+    background: #FFFFFF !important;
+    border-color: rgba(0, 0, 0, 0.08) !important;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06) !important;
+    color: #1C1917 !important;
+}
+
+body.light-mode .builder-item-btn {
+    background: #F4F0E8 !important;
+    border-color: rgba(0, 0, 0, 0.08) !important;
+    color: #1C1917 !important;
+}
+
+body.light-mode .builder-item-btn:hover,
+body.light-mode .builder-item-btn.selected {
+    background: #FFFFFF !important;
+    border-color: #A17424 !important;
+}
+
+body.light-mode .suscripciones,
+body.light-mode .contacto,
+body.light-mode .footer {
+    background-color: #F1EDE5 !important;
+}
+
+body.light-mode .packs-horizontal .pack-card::before {
+    background: linear-gradient(90deg, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 0.85) 50%, rgba(255, 255, 255, 0.6) 100%) !important;
+}
+
+body.light-mode .footer {
+    border-top: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+body.light-mode .footer-desc,
+body.light-mode .footer-col ul li a,
+body.light-mode .footer-newsletter p,
+body.light-mode .footer-bottom p {
+    color: #555 !important;
+}
+
+body.light-mode .form-control,
+body.light-mode input,
+body.light-mode select,
+body.light-mode textarea {
+    background: #F5F2EC !important;
+    color: #1C1917 !important;
+    border-color: rgba(0, 0, 0, 0.12) !important;
+}

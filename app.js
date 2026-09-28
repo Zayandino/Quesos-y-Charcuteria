@@ -17,6 +17,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         // Cargar carrito desde localStorage
         loadCart();
 
+        // Inicializar selector de tema (Modo Claro / Oscuro)
+        initThemeToggle();
+
         // Inicializar el Armador de Tabla de forma inmediata
         initArmadorTabla();
 
@@ -423,19 +426,63 @@ async function initializeSampleData() {
 
 // ===== CARGAR PRODUCTORES =====
 async function loadProductores() {
-    const productores = await DataManager.getProductores({ activo: true });
+    const section = document.getElementById('productores');
     const grid = document.getElementById('productoresGrid');
 
-    if (!grid) return;
+    try {
+        const productores = await DataManager.getProductores({ activo: true });
+        if (!productores || productores.length === 0) {
+            if (section) section.style.display = 'none';
+            return;
+        }
 
-    grid.innerHTML = productores.map(productor => `
-    <div class="productor-card">
-      <div class="productor-logo">👨‍🌾</div>
-      <h3 class="productor-name">${productor.nombre}</h3>
-      <p class="productor-location">📍 ${productor.ubicacion}</p>
-      <p class="productor-specialty">${productor.especialidad}</p>
-    </div>
-  `).join('');
+        if (!grid) return;
+
+        if (section) section.style.display = '';
+        grid.innerHTML = productores.map(productor => `
+        <div class="productor-card">
+          <div class="productor-logo">👨‍🌾</div>
+          <h3 class="productor-name">${productor.nombre}</h3>
+          <p class="productor-location">📍 ${productor.ubicacion}</p>
+          <p class="productor-specialty">${productor.especialidad}</p>
+        </div>
+      `).join('');
+    } catch (e) {
+        if (section) section.style.display = 'none';
+    }
+}
+
+// ===== MODO CLARO / OSCURO (THEME TOGGLE) =====
+function initThemeToggle() {
+    const toggleBtn = document.getElementById('themeToggleBtn');
+    if (!toggleBtn) return;
+
+    // Cargar preferencia desde localStorage (default dark)
+    const savedTheme = localStorage.getItem('dcava_theme') || 'dark';
+    if (savedTheme === 'light') {
+        document.body.classList.add('light-mode');
+    } else {
+        document.body.classList.remove('light-mode');
+    }
+    updateThemeIcon();
+
+    toggleBtn.addEventListener('click', () => {
+        document.body.classList.toggle('light-mode');
+        const isLight = document.body.classList.contains('light-mode');
+        localStorage.setItem('dcava_theme', isLight ? 'light' : 'dark');
+        updateThemeIcon();
+    });
+}
+
+function updateThemeIcon() {
+    const icon = document.getElementById('themeIcon');
+    if (!icon) return;
+    const isLight = document.body.classList.contains('light-mode');
+    if (isLight) {
+        icon.className = 'fa-solid fa-moon';
+    } else {
+        icon.className = 'fa-solid fa-sun';
+    }
 }
 
 // ===== CARGAR FILTROS DINÁMICOS =====
