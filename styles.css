@@ -191,12 +191,13 @@ img {
 }
 
 .header-container {
-    max-width: 1200px;
+    max-width: 1280px;
     margin: 0 auto;
-    padding: 0 2rem;
+    padding: 0 1.5rem;
     display: flex;
     justify-content: space-between;
     align-items: center;
+    gap: 1.5rem;
 }
 
 .logo {
@@ -205,6 +206,7 @@ img {
     letter-spacing: 0.1em;
     color: var(--text-main);
     text-transform: uppercase;
+    flex-shrink: 0;
 }
 
 .logo span {
@@ -215,15 +217,17 @@ img {
 
 .nav {
     display: flex;
-    gap: 3rem;
+    gap: 1.8rem;
     align-items: center;
+    flex-shrink: 1;
 }
 
 .nav-link {
-    font-size: 0.85rem;
+    font-size: 0.8rem;
     text-transform: uppercase;
-    letter-spacing: 0.15em;
+    letter-spacing: 0.12em;
     color: var(--text-muted);
+    white-space: nowrap;
 }
 
 .nav-link:hover {
@@ -233,7 +237,27 @@ img {
 .header-actions {
     display: flex;
     align-items: center;
-    gap: 1.5rem;
+    gap: 1rem;
+    flex-shrink: 0;
+}
+
+.admin-header-badge {
+    background: rgba(198, 167, 94, 0.15);
+    border: 1px solid var(--gold);
+    color: var(--gold);
+    padding: 5px 12px;
+    border-radius: 20px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    text-decoration: none;
+    white-space: nowrap;
+    transition: all 0.2s ease;
+}
+
+.admin-header-badge:hover {
+    background: var(--gold);
+    color: #000000;
+    transform: translateY(-1px);
 }
 
 .account-btn {
@@ -248,6 +272,7 @@ img {
     align-items: center;
     gap: 0.5rem;
     transition: var(--transition);
+    white-space: nowrap;
 }
 
 .account-btn:hover {

@@ -1022,26 +1022,36 @@ async function checkAuthState() {
 function updateUserUI(user) {
     const accountBtn = document.getElementById('accountBtn');
     if (accountBtn) {
-        const name = user.user_metadata?.nombre || user.email.split('@')[0];
+        let name = user.user_metadata?.nombre || user.email.split('@')[0];
+        // Formatear primer nombre para evitar nombres muy largos en el header
+        name = name.split(' ')[0].split('.')[0];
+        if (name.length > 12) name = name.substring(0, 10) + '...';
+
+        accountBtn.innerHTML = `👤 <span class="btn-text">${name}</span>`;
+
         const isAdmin = user.user_metadata?.rol === 'admin' ||
             user.email === 'admin@dcava.cl' ||
-            user.email === 'ambler.eduardo@gmail.com'; // Permitir acceso rápido a Eduardo
+            user.email === 'ambler.eduardo@gmail.com';
 
-        let adminLink = '';
+        let adminShortcut = document.getElementById('adminHeaderShortcut');
+        const actions = document.querySelector('.header-actions');
+
         if (isAdmin) {
-            adminLink = `<a href="admin.html" class="admin-shortcut-btn" title="Ir al Panel de Control">
-                            <i class="fas fa-cog"></i> Admin
-                         </a>`;
+            sessionStorage.setItem('is_admin', 'true');
+            if (!adminShortcut && actions) {
+                adminShortcut = document.createElement('a');
+                adminShortcut.id = 'adminHeaderShortcut';
+                adminShortcut.href = 'admin.html';
+                adminShortcut.className = 'admin-header-badge';
+                adminShortcut.title = 'Ir al Panel de Administración';
+                adminShortcut.innerHTML = '⚙️ Admin';
+                actions.insertBefore(adminShortcut, accountBtn);
+            }
+        } else if (adminShortcut) {
+            adminShortcut.remove();
         }
 
-        accountBtn.innerHTML = `
-            ${adminLink}
-            <div onclick="openProfileModal()" style="display:inline-block; cursor:pointer;">
-                <i class="fas fa-user" style="color:var(--gold)"></i> Hola, ${name}
-            </div>
-        `;
         sessionStorage.setItem('user_email', user.email);
-        if (isAdmin) sessionStorage.setItem('is_admin', 'true');
     }
 }
 
