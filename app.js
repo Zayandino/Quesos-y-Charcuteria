@@ -502,12 +502,21 @@ function updateThemeIcon() {
 }
 
 // ===== MODO MANTENIMIENTO / EN CONSTRUCCIÓN =====
-function checkMaintenanceMode() {
-    const isMaintenance = localStorage.getItem('dcava_maintenance_mode') === 'true';
-    const isAdminBypass = localStorage.getItem('dcava_admin_bypass') === 'true';
-
+async function checkMaintenanceMode() {
     const overlay = document.getElementById('maintenanceOverlay');
     if (!overlay) return;
+
+    let isMaintenance = false;
+    if (typeof DataManager !== 'undefined' && DataManager.getModoMantenimiento) {
+        isMaintenance = await DataManager.getModoMantenimiento();
+    } else {
+        isMaintenance = localStorage.getItem('dcava_maintenance_mode') === 'true';
+    }
+
+    const isAdminBypass = localStorage.getItem('dcava_admin_bypass') === 'true' ||
+        sessionStorage.getItem('is_admin') === 'true' ||
+        (sessionStorage.getItem('user_email') === 'admin@dcava.cl' ||
+         sessionStorage.getItem('user_email') === 'ambler.eduardo@gmail.com');
 
     if (isMaintenance && !isAdminBypass) {
         overlay.style.display = 'flex';

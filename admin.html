@@ -1141,17 +1141,31 @@
                 initMaintenanceToggle();
             });
 
-            function initMaintenanceToggle() {
-                const isMaint = localStorage.getItem('dcava_maintenance_mode') === 'true';
+                        async function initMaintenanceToggle() {
+                let isMaint = false;
+                if (typeof DataManager !== 'undefined' && DataManager.getModoMantenimiento) {
+                    isMaint = await DataManager.getModoMantenimiento();
+                } else {
+                    isMaint = localStorage.getItem('dcava_maintenance_mode') === 'true';
+                }
                 updateMaintenanceBtnUI(isMaint);
             }
 
-            function toggleMaintenanceMode() {
-                const current = localStorage.getItem('dcava_maintenance_mode') === 'true';
+            async function toggleMaintenanceMode() {
+                let current = false;
+                if (typeof DataManager !== 'undefined' && DataManager.getModoMantenimiento) {
+                    current = await DataManager.getModoMantenimiento();
+                } else {
+                    current = localStorage.getItem('dcava_maintenance_mode') === 'true';
+                }
                 const next = !current;
-                localStorage.setItem('dcava_maintenance_mode', next ? 'true' : 'false');
+                if (typeof DataManager !== 'undefined' && DataManager.setModoMantenimiento) {
+                    await DataManager.setModoMantenimiento(next);
+                } else {
+                    localStorage.setItem('dcava_maintenance_mode', next ? 'true' : 'false');
+                }
                 updateMaintenanceBtnUI(next);
-                alert(next ? '🔒 Modo Mantenimiento ACTIVADO. Los visitantes verán la pantalla de En Construcción.' : '🔓 Modo Mantenimiento DESACTIVADO. La tienda vuelve a estar abierta al público.');
+                alert(next ? '🔒 Modo Mantenimiento ACTIVADO. Se ha guardado en el servidor para todos los visitantes.' : '🔓 Modo Mantenimiento DESACTIVADO. La tienda vuelve a estar abierta al público.');
             }
 
             function updateMaintenanceBtnUI(isMaint) {

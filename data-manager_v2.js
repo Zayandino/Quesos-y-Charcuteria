@@ -717,6 +717,52 @@ const DataManager = {
             if (error) throw error;
             return true;
         }
+    },
+
+    // ===== MODO MANTENIMIENTO =====
+    async getModoMantenimiento() {
+        if (this.mode === 'supabase' && this.supabase) {
+            try {
+                const { data, error } = await this.supabase
+                    .from('dcava_configuracion')
+                    .select('valor')
+                    .eq('clave', 'modo_mantenimiento')
+                    .maybeSingle();
+                if (!error && data && data.valor !== undefined) {
+                    localStorage.setItem('dcava_maintenance_mode', data.valor);
+                    return data.valor === 'true';
+                }
+            } catch (e) {
+                console.warn('⚠️ Error consultando modo_mantenimiento desde Supabase:', e);
+            }
+        }
+        return localStorage.getItem('dcava_maintenance_mode') === 'true';
+    },
+
+    async setModoMantenimiento(activo) {
+        const strVal = activo ? 'true' : 'false';
+        localStorage.setItem('dcava_maintenance_mode', strVal);
+        if (this.mode === 'supabase' && this.supabase) {
+            try {
+                const { error } = await this.supabase
+                    .from('dcava_configuracion')
+                    .upsert({
+                        clave: 'modo_mantenimiento',
+                        valor: strVal,
+                        descripcion: 'Modo mantenimiento del sitio web',
+                        updated_at: new Date().toISOString()
+                    }, { onConflict: 'clave' });
+                if (error) {
+                    await this.supabase
+                        .from('dcava_configuracion')
+                        .update({ valor: strVal, updated_at: new Date().toISOString() })
+                        .eq('clave', 'modo_mantenimiento');
+                }
+            } catch (e) {
+                console.error('⚠️ Error guardando modo_mantenimiento en Supabase:', e);
+            }
+        }
+        return activo;
     }
 };
 
