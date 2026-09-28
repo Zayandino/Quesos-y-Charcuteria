@@ -82,7 +82,7 @@ const DataManager = {
         if (!text) return text;
         const dict = {
             '??cidas': 'ácidas', 'Maduraci??n': 'Maduración', 'mediterr??neas': 'mediterráneas',
-            'selecci??n': 'selección', 'or??gano': 'orégano', 'maduraci??n': 'maduración',
+            'selecci??n': 'selección', 'introducci??n': 'introducción', 'or??gano': 'orégano', 'maduraci??n': 'maduración',
             'cl??sico': 'clásico', 'merk??n': 'merkén', 'Araucan??a': 'Araucanía',
             'emblem??tica': 'emblemática', 'Chill??n': 'Chillán', 'le??a': 'leña',
             'r??stica': 'rústica', 'piment??n': 'pimentón', 'chorip??n': 'choripán',
@@ -604,14 +604,15 @@ const DataManager = {
     // ===== PACKS DE SUSCRIPCIÓN =====
     async getPacks() {
         if (this.mode === 'local') {
-            return JSON.parse(localStorage.getItem('packs') || '[]');
+            return JSON.parse(localStorage.getItem('packs') || '[]').map(p => this.sanitizeItem(p));
         } else {
             const { data, error } = await this.supabase
                 .from('dcava_packs_suscripcion')
                 .select('*')
                 .order('id', { ascending: true });
             if (error) throw error;
-            return (data || []).map(p => {
+            return (data || []).map(rawPack => {
+                const p = this.sanitizeItem(rawPack);
                 let contenido = p.contenido;
                 let badge = p.badge || null;
                 // Si el contenido viene en formato de objeto con items/badge
@@ -633,7 +634,7 @@ const DataManager = {
     async savePack(packData) {
         const { id, badge, ...fields } = packData;
         
-        // Empaquetar badge e items de forma segura en contenido JSONB
+        // Empaquetar badge e items de forma segura en contenido JSONB si viene definido
         let contenidoToStore = fields.contenido;
         if (Array.isArray(fields.contenido)) {
             contenidoToStore = {
@@ -643,13 +644,13 @@ const DataManager = {
             };
         }
 
-        const payload = {
-            nombre: fields.nombre,
-            descripcion: fields.descripcion || '',
-            precio_mensual: fields.precio_mensual,
-            contenido: contenidoToStore,
-            activo: fields.activo !== undefined ? fields.activo : true
-        };
+        // Construir payload solo con campos definidos para no sobrescribir con undefined en actualizaciones parciales (ej: toggle activo)
+        const payload = {};
+        if (fields.nombre !== undefined) payload.nombre = fields.nombre;
+        if (fields.descripcion !== undefined) payload.descripcion = fields.descripcion;
+        if (fields.precio_mensual !== undefined) payload.precio_mensual = fields.precio_mensual;
+        if (contenidoToStore !== undefined) payload.contenido = contenidoToStore;
+        if (fields.activo !== undefined) payload.activo = fields.activo;
 
         if (this.mode === 'local') {
             const packs = JSON.parse(localStorage.getItem('packs') || '[]');
