@@ -83,7 +83,20 @@ window.login = async function (event) {
     } catch (error) {
         console.error('Login error:', error);
         if (errorMsg) {
-            errorMsg.textContent = error.message || 'Acceso denegado. Credenciales incorrectas o sin permisos.';
+            let rawMsg = (error && error.message) ? error.message.toLowerCase() : '';
+            let translatedMsg = 'Acceso denegado. Verifica tus credenciales o permisos.';
+
+            if (rawMsg.includes('failed to fetch') || rawMsg.includes('networkerror') || rawMsg.includes('fetch')) {
+                translatedMsg = 'Error de conexión con el servidor. Por favor, recarga la página (Ctrl + F5) e intenta nuevamente.';
+            } else if (rawMsg.includes('invalid login credentials') || rawMsg.includes('invalid_grant')) {
+                translatedMsg = 'Credenciales incorrectas: El correo electrónico o la contraseña ingresados no son válidos.';
+            } else if (rawMsg.includes('permisos') || rawMsg.includes('admin')) {
+                translatedMsg = 'Acceso restringido: Esta cuenta no posee permisos de administrador.';
+            } else if (error && error.message) {
+                translatedMsg = `Error de autenticación: ${error.message}`;
+            }
+
+            errorMsg.textContent = translatedMsg;
             errorMsg.style.display = 'block';
         }
     }
