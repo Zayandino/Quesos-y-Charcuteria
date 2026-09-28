@@ -218,8 +218,8 @@
                 const password = document.getElementById('adminPassword').value;
 
                 try {
-                    const result = await DataManager.login(email, password);
-                    if (result.success) {
+                    const result = await DataManager.signIn(email, password);
+                    if (result && (result.user || result.session)) {
                         // Guardar token de bypass de mantenimiento para el administrador
                         localStorage.setItem('dcava_admin_bypass', 'true');
                         localStorage.setItem('dcava_admin_email', email);
@@ -227,7 +227,7 @@
                         // Redirigir directamente al panel admin
                         window.location.href = 'admin.html';
                     } else {
-                        throw new Error(result.error || 'Credenciales de administrador no válidas.');
+                        throw new Error('Credenciales de administrador no válidas.');
                     }
                 } catch (err) {
                     errorAlert.textContent = err.message || 'Error al iniciar sesión. Verifica tus datos.';

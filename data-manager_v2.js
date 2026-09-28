@@ -55,6 +55,10 @@ const DataManager = {
         }
     },
 
+    async login(email, password) {
+        return this.signIn(email, password);
+    },
+
     async signOut() {
         if (this.mode === 'supabase' && this.supabase) {
             try {
