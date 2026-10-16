@@ -2161,6 +2161,10 @@ body.light-mode .manifesto {
     color: #1C1917 !important;
 }
 
+body.light-mode .hero-bottom-edge {
+    background: url('data:image/svg+xml;utf8,<svg viewBox="0 0 1200 40" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg"><path d="M0,40 L1200,40 L1200,0 C1000,20 800,5 600,25 C400,45 200,10 0,30 Z" fill="%23FAF8F5"/></svg>') bottom/100% 100% no-repeat !important;
+}
+
 body.light-mode .suscripciones,
 body.light-mode .contacto,
 body.light-mode .footer {
