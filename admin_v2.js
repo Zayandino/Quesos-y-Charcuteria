@@ -459,8 +459,9 @@ form.addEventListener('submit', async (e) => {
             await DataManager.createProducto(data);
         }
         closeProductModal();
-        loadProducts();
-        loadDashboard();
+        await loadProducts();
+        await loadDashboard();
+        showAdminToast('Producto guardado correctamente', 'success');
     } catch (err) {
         console.error('Error saving product:', err);
         showAdminToast('Error al guardar el producto. Intenta de nuevo.', 'error');
