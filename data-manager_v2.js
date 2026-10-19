@@ -41,28 +41,14 @@ const DataManager = {
 
     async signIn(email, password) {
         if (this.mode === 'supabase' && this.supabase) {
-            try {
-                const { data, error } = await this.supabase.auth.signInWithPassword({
-                    email,
-                    password
-                });
-                if (error) throw error;
-                return data;
-            } catch (err) {
-                if (err.message && err.message.includes('Failed to fetch')) {
-                    console.warn('⚠️ Error de red en Supabase. Intentando fallback local si aplica:', err);
-                    if (password === 'admin123' || email === 'ambler.eduardo@gmail.com') {
-                        return { user: { email, role: 'admin' } };
-                    }
-                    throw new Error('No se pudo conectar con el servidor de autenticación de Supabase (Failed to fetch).');
-                }
-                throw err;
-            }
+            const { data, error } = await this.supabase.auth.signInWithPassword({
+                email: (email || '').trim(),
+                password
+            });
+            if (error) throw error;
+            return data;
         } else {
-            if (password === 'admin123' || email === 'ambler.eduardo@gmail.com') {
-                return { user: { email, role: 'admin' } };
-            }
-            return { user: { email } };
+            throw new Error('Modo de autenticación no disponible.');
         }
     },
 
@@ -248,6 +234,9 @@ const DataManager = {
         } else {
             const { data: result, error } = await this.supabase.from('dcava_productos').insert([data]).select();
             if (error) throw error;
+            if (!result || result.length === 0) {
+                throw new Error('No se pudo crear el producto. Permisos insuficientes o sesión de administrador expirada.');
+            }
             return result[0];
         }
     },
@@ -265,6 +254,9 @@ const DataManager = {
         } else {
             const { data: result, error } = await this.supabase.from('dcava_productos').update(data).eq('id', id).select();
             if (error) throw error;
+            if (!result || result.length === 0) {
+                throw new Error('No se pudo actualizar el producto. Permisos insuficientes o sesión de administrador expirada.');
+            }
             return result[0];
         }
     },
@@ -276,8 +268,11 @@ const DataManager = {
             localStorage.setItem('productos', JSON.stringify(productos));
             return true;
         } else {
-            const { error } = await this.supabase.from('dcava_productos').delete().eq('id', id);
+            const { data: result, error } = await this.supabase.from('dcava_productos').delete().eq('id', id).select();
             if (error) throw error;
+            if (!result || result.length === 0) {
+                throw new Error('No se pudo eliminar el producto. Permisos insuficientes o sesión expirada.');
+            }
             return true;
         }
     },

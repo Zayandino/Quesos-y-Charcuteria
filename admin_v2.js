@@ -52,7 +52,7 @@ function showAdminPanel() {
 
 window.login = async function (event) {
     event.preventDefault();
-    const email = document.getElementById('adminEmail').value;
+    const email = (document.getElementById('adminEmail').value || '').trim();
     const password = document.getElementById('adminPass').value;
     const errorMsg = document.getElementById('loginError');
     if (errorMsg) errorMsg.style.display = 'none';

@@ -513,10 +513,23 @@ async function checkMaintenanceMode() {
         isMaintenance = localStorage.getItem('dcava_maintenance_mode') === 'true';
     }
 
-    const isAdminBypass = localStorage.getItem('dcava_admin_bypass') === 'true' ||
-        sessionStorage.getItem('is_admin') === 'true' ||
-        (sessionStorage.getItem('user_email') === 'admin@dcava.cl' ||
-         sessionStorage.getItem('user_email') === 'ambler.eduardo@gmail.com');
+    let isAdminBypass = sessionStorage.getItem('is_admin') === 'true';
+    if (!isAdminBypass && typeof DataManager !== 'undefined' && DataManager.supabase) {
+        try {
+            const user = await DataManager.getCurrentUser();
+            if (user) {
+                const { data } = await DataManager.supabase
+                    .from('dcava_usuarios_sistema')
+                    .select('rol')
+                    .eq('email', user.email)
+                    .single();
+                if (data && (data.rol === 'admin' || data.rol === 'staff')) {
+                    isAdminBypass = true;
+                    sessionStorage.setItem('is_admin', 'true');
+                }
+            }
+        } catch (_) {}
+    }
 
     if (isMaintenance && !isAdminBypass) {
         overlay.style.display = 'flex';
@@ -946,10 +959,20 @@ function setupEventListeners() {
                     closeAuthModalFunc();
 
                     // Si es admin, preguntar si quiere ir al panel
-                    const isAdmin = data.user.email === 'admin@dcava.cl' || data.user.email === 'ambler.eduardo@gmail.com';
+                    let isAdmin = false;
+                    try {
+                        const { data: adminUser } = await DataManager.supabase
+                            .from('dcava_usuarios_sistema')
+                            .select('rol')
+                            .eq('email', data.user.email)
+                            .single();
+                        isAdmin = adminUser && (adminUser.rol === 'admin' || adminUser.rol === 'staff');
+                    } catch (_) {}
+
                     if (isAdmin) {
                         sessionStorage.setItem('admin_authenticated', 'true');
-                        if (confirm('💪 Hola Eduardo, bienvenido. ¿Deseas ir al Panel de Administración?')) {
+                        sessionStorage.setItem('is_admin', 'true');
+                        if (confirm('👋 Hola, bienvenido. ¿Deseas ir al Panel de Administración?')) {
                             window.location.href = 'admin.html';
                             return;
                         }
@@ -1038,9 +1061,17 @@ function updateUserUI(user) {
 
         accountBtn.innerHTML = `👤 <span class="btn-text">${name}</span>`;
 
-        const isAdmin = user.user_metadata?.rol === 'admin' ||
-            user.email === 'admin@dcava.cl' ||
-            user.email === 'ambler.eduardo@gmail.com';
+        let isAdmin = user.user_metadata?.rol === 'admin';
+        if (!isAdmin && typeof DataManager !== 'undefined' && DataManager.supabase) {
+            try {
+                const { data: adminUser } = await DataManager.supabase
+                    .from('dcava_usuarios_sistema')
+                    .select('rol')
+                    .eq('email', user.email)
+                    .single();
+                isAdmin = adminUser && (adminUser.rol === 'admin' || adminUser.rol === 'staff');
+            } catch (_) {}
+        }
 
         let adminShortcut = document.getElementById('adminHeaderShortcut');
         const actions = document.querySelector('.header-actions');
@@ -1096,7 +1127,18 @@ async function loadProfileData() {
     if (emailEl) emailEl.textContent = user.email;
 
     // Verificar si es admin para mostrar botón de acceso
-    const isAdmin = user.email === 'admin@dcava.cl' || user.email === 'ambler.eduardo@gmail.com';
+    let isAdmin = user.user_metadata?.rol === 'admin';
+    if (!isAdmin && typeof DataManager !== 'undefined' && DataManager.supabase) {
+        try {
+            const { data: adminUser } = await DataManager.supabase
+                .from('dcava_usuarios_sistema')
+                .select('rol')
+                .eq('email', user.email)
+                .single();
+            isAdmin = adminUser && (adminUser.rol === 'admin' || adminUser.rol === 'staff');
+        } catch (_) {}
+    }
+
     const profileActions = document.getElementById('profileAdminActions');
     if (profileActions) {
         if (isAdmin) {

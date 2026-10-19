@@ -219,29 +219,31 @@
 
                 try {
                     const result = await DataManager.signIn(email, password);
-                    if (result && (result.user || result.session)) {
-                        // Guardar token de bypass de mantenimiento para el administrador
-                        localStorage.setItem('dcava_admin_bypass', 'true');
-                        localStorage.setItem('dcava_admin_email', email);
+                    if (result && result.user) {
+                        // Verificar que el usuario tenga rol de administrador en la base de datos
+                        const { data: adminUser, error: roleError } = await DataManager.supabase
+                            .from('dcava_usuarios_sistema')
+                            .select('rol')
+                            .eq('email', result.user.email)
+                            .single();
 
-                        // Redirigir directamente al panel admin
-                        window.location.href = 'admin.html';
-                        return;
+                        if (!roleError && adminUser && (adminUser.rol === 'admin' || adminUser.rol === 'staff')) {
+                            // Redirigir directamente al panel admin
+                            window.location.href = 'admin.html';
+                            return;
+                        } else {
+                            await DataManager.signOut();
+                            throw new Error('Esta cuenta no posee permisos de administración.');
+                        }
                     } else {
                         throw new Error('Credenciales de administrador no válidas.');
                     }
                 } catch (err) {
-                    // Fallback para permitir acceso administrativo directo si hay problemas de red con el endpoint
-                    if (email === 'ambler.eduardo@gmail.com') {
-                        localStorage.setItem('dcava_admin_bypass', 'true');
-                        localStorage.setItem('dcava_admin_email', email);
-                        window.location.href = 'admin.html';
-                        return;
-                    }
-
                     let errorText = err.message || 'Error al iniciar sesión. Verifica tus datos.';
-                    if (errorText.includes('Failed to fetch')) {
-                        errorText = '⚠️ No se pudo conectar con el servidor de autenticación (Failed to fetch). Verifica tu conexión a internet.';
+                    if (errorText.includes('Failed to fetch') || errorText.includes('networkerror')) {
+                        errorText = '⚠️ No se pudo conectar con el servidor de autenticación. Verifica tu conexión a internet.';
+                    } else if (errorText.includes('Invalid login credentials') || errorText.includes('invalid_grant')) {
+                        errorText = 'Correo electrónico o contraseña incorrectos.';
                     }
                     errorAlert.textContent = errorText;
                     errorAlert.style.display = 'block';
